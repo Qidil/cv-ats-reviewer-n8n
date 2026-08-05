@@ -1,0 +1,14 @@
+{
+    "name":  "Qidil",
+    "project":  "cv-ats-reviewer-n8n",
+    "languagePreferences":  {
+                                "communication":  {
+                                                      "raw":  "Bahasa Indonesia",
+                                                      "normalized":  "indonesian"
+                                                  },
+                                "documents":  {
+                                                  "raw":  "English",
+                                                  "normalized":  "english"
+                                              }
+                            }
+}
