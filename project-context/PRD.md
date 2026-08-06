@@ -103,7 +103,7 @@ without consent or hallucinate facts.
 | ID | Category | Requirement | Target |
 |----|----------|-------------|--------|
 | NFR-01 | Performance | Page load time | < 3 seconds |
-| NFR-02 | Performance | AI analysis call completes | < 60 seconds |
+| NFR-02 | Performance | AI analysis call completes | < 5 minutes (free models; timeout via N8N_TIMEOUT_MS) |
 | NFR-03 | Security | OpenRouter API key never exposed to the browser | Local-only (backend) |
 | NFR-04 | Security | Data stays local; no third-party data transmission beyond OpenRouter | Full |
 | NFR-05 | Scalability | Concurrent users | 1 (single-user) |

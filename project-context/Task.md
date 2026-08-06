@@ -1,6 +1,6 @@
 # Task: CV ATS Reviewer (cv-ats-reviewer-n8n)
 
-> **Total Phases:** 7 | **Total Tasks:** 29 | **Last Updated:** 2026-08-05
+> **Total Phases:** 7 | **Total Tasks:** 29 | **Last Updated:** 2026-08-06
 
 ## Document Role
 - **Source of Truth:** Execution plan derived from approved spec documents
@@ -39,7 +39,7 @@
 | 1 | Setup & Konfigurasi | [x] | 3/3 |
 | 2 | n8n Workflows | [x] | 4/4 |
 | 3 | Backend: Database & Models | [x] | 4/4 |
-| 4 | Backend: ATS Engine & REST API | [ ] | 0/7 |
+| 4 | Backend: ATS Engine & REST API | [x] | 7/7 |
 | 5 | Backend: n8n Proxy & Export | [ ] | 0/5 |
 | 6 | Frontend: React UI | [ ] | 0/4 |
 | 7 | E2E, Export & Ship | [ ] | 0/3 |
@@ -234,7 +234,7 @@
 > **Dependency:** Phase 3 must be complete
 > **Goal:** Upload + analyze + report + approve endpoints, deterministic ATS checks in TypeScript, regex parser with tests.
 
-- [ ] **Task 4.1: ATS engine tests**
+- [x] **Task 4.1: ATS engine tests**
   - **Files:** `backend/src/services/ats.test.ts`
   - **Description:** Write tests for the 6 deterministic checks (keyword,
     skills, sections, formatting, quantified, readability), composite score
@@ -242,11 +242,12 @@
   - **References:** [`project-context/ats-reference.md#5`](project-context/ats-reference.md)
   - **Traceability IDs:** [`FEAT-03`](project-context/PRD.md) / [`BR-02`](project-context/PRD.md)
   - **Acceptance Criteria:**
-    - [ ] Each of the 6 checks has a test case
-    - [ ] Composite score bounded 0–100
-    - [ ] Low-scoring checks map to weaknesses/suggestions
+    - [x] Each of the 6 checks has a test case
+    - [x] Composite score bounded 0–100
+    - [x] Low-scoring checks map to weaknesses/suggestions
+  - **Implementation:** 8 test kasus; bobot composite (keyword 30, skills 20, sections 15, formatting 10, quantified 15, readability 10) dikunci di `ats.ts`; test quantified memakai fixture terpisah karena tanggal pada bullet ikut terhitung sebagai metrik.
 
-- [ ] **Task 4.2: ATS engine implementation**
+- [x] **Task 4.2: ATS engine implementation**
   - **Files:** `backend/src/services/ats.ts`
   - **Description:** Implement deterministic ATS logic: keyword overlap, skills
     coverage, section completeness, formatting/parse-safety, quantified
@@ -255,11 +256,12 @@
   - **References:** [`project-context/ats-reference.md#5`](project-context/ats-reference.md)
   - **Traceability IDs:** [`FEAT-03`](project-context/PRD.md) / [`BR-02`](project-context/PRD.md)
   - **Acceptance Criteria:**
-    - [ ] All 6 checks return `{ id, name, status, score, detail }`
-    - [ ] `overallScore` = weighted composite (weights locked at build time)
-    - [ ] Task 4.1 tests pass
+    - [x] All 6 checks return `{ id, name, status, score, detail }`
+    - [x] `overallScore` = weighted composite (weights locked at build time)
+    - [x] Task 4.1 tests pass
+  - **Implementation:** `analyzeCv(cvText, targetJobDescription)` → `{ overallScore, atsChecks, weaknesses, suggestions }`. Deteksi section via heading normalisasi (EN+ID), ekstraksi keyword JD via regex token + stopwords, whole-word match. Suggestion id `sug-N`, priority dari score (<40 high, <60 medium, else low), maks 3 dari cek terendah. Tipe `AtsCheck`/`Suggestion` dipakai ulang dari `db/repos.ts`.
 
-- [ ] **Task 4.3: Model output parser tests**
+- [x] **Task 4.3: Model output parser tests**
   - **Files:** `backend/src/utils/model-parser.test.ts`
   - **Description:** Write tests for parsing raw model output into the report
     shape with regex fallback (JSON extraction from markdown fenced blocks,
@@ -267,21 +269,23 @@
   - **References:** [`project-context/api.md#report-shape`](project-context/api.md)
   - **Traceability IDs:** [`AC-06`](project-context/PRD.md)
   - **Acceptance Criteria:**
-    - [ ] Parses JSON from ```json fenced blocks
-    - [ ] Falls back to regex extraction for malformed output
-    - [ ] Returns clear error when nothing parseable
+    - [x] Parses JSON from ```json fenced blocks
+    - [x] Falls back to regex extraction for malformed output
+    - [x] Returns clear error when nothing parseable
+  - **Implementation:** 6 test kasus: clean JSON, fenced `json`, fenced tanpa marker, malformed dgn teks bebas di sekitar, error saat tidak ada JSON, dan normalisasi field out-of-range (overallScore 500→100, status 'wat'→'warn', priority 'urgent'→'medium', id non-string→`sug-N`).
 
-- [ ] **Task 4.4: Model output parser implementation**
+- [x] **Task 4.4: Model output parser implementation**
   - **Files:** `backend/src/utils/model-parser.ts`
   - **Description:** Implement parser with runtime guard + regex fallback,
     returning typed `AnalyzeReport` or error. **Dependencies:** Task 4.3
   - **References:** [`project-context/rules.md#3`](project-context/rules.md)
   - **Traceability IDs:** [`AC-06`](project-context/PRD.md) / [`F-01`](project-context/rules.md)
   - **Acceptance Criteria:**
-    - [ ] Never trusts raw output shape without a guard
-    - [ ] Task 4.3 tests pass
+    - [x] Never trusts raw output shape without a guard
+    - [x] Task 4.3 tests pass
+  - **Implementation:** `parseAnalyzeReport(raw)` → coba fenced block, lalu scan balanced-object (string-aware) untuk regex fallback; normalisasi setiap field via helper guard (`clampScore`, `asStatus`, `asPriority`). Throws `ModelParseError` bila tidak ada JSON valid.
 
-- [ ] **Task 4.5: REST API routes tests**
+- [x] **Task 4.5: REST API routes tests**
   - **Files:** `backend/src/routes/api.test.ts`
   - **Description:** Write supertest integration tests for `POST /api/cvs`
     (multipart, 201/400/415), `POST /api/cvs/:cvId/analyze`, `GET
@@ -291,11 +295,11 @@
   - **References:** [`project-context/api.md#frontend--backend`](project-context/api.md)
   - **Traceability IDs:** [`FEAT-01`](project-context/PRD.md) / [`FEAT-04`](project-context/PRD.md) / [`FEAT-08`](project-context/PRD.md)
   - **Acceptance Criteria:**
-    - [ ] Each endpoint has success + error-case tests
-    - [ ] 400/404/415 codes per api.md error codes
-    - [ ] Upload size limit enforced
+    - [x] Each endpoint has success + error-case tests
+    - [x] 400/404/415 codes per api.md error codes
+    - [x] Upload size limit enforced
 
-- [ ] **Task 4.6: REST routes — upload, list, report**
+- [x] **Task 4.6: REST routes — upload, list, report**
   - **Files:** `backend/src/routes/cvs.ts`, `backend/src/routes/reviews.ts`, `backend/src/index.ts`
   - **Description:** Implement `POST /api/cvs` (multipart + pdf-parse + store
     cvs + target_jobs), `GET /api/cvs` (with computed `latestReviewId`),
@@ -303,20 +307,51 @@
   - **References:** [`project-context/api.md#upload`](project-context/api.md)
   - **Traceability IDs:** [`FEAT-01`](project-context/PRD.md) / [`FEAT-02`](project-context/PRD.md) / [`BR-01`](project-context/PRD.md) / [`BR-03`](project-context/PRD.md)
   - **Acceptance Criteria:**
-    - [ ] Upload returns 201 `{ id }`; missing job → 400; non-PDF → 415
-    - [ ] Analysis endpoint waits synchronously and returns the report
-    - [ ] Task 4.5 tests pass
+    - [x] Upload returns 201 `{ id }`; missing job → 400; non-PDF → 415
+    - [x] Analysis endpoint waits synchronously and returns the report
+    - [x] Task 4.5 tests pass
+  - **Implementation (note):** `backend/src/services/n8n-proxy.ts` (fungsi `analyzeCv`)
+    diimplementasikan di fase ini karena endpoint analyze membutuhkan proxy ke webhook
+    `cv-analyze`. File ini secara resmi adalah milik Task 5.2 — status Task 5.1/5.2 tetap
+    `[ ]` dan `rewriteCv` belum ditambahkan.
 
-- [ ] **Task 4.7: REST routes — approve**
+- [x] **Task 4.7: REST routes — approve**
   - **Files:** `backend/src/routes/approvals.ts`
   - **Description:** Implement `POST /api/reviews/:reviewId/approve` storing
     `approvals.approved_suggestions_json`; 400 on empty/unknown ids. **Dependencies:** Task 4.6
   - **References:** [`project-context/api.md#approve`](project-context/api.md)
   - **Traceability IDs:** [`FEAT-04`](project-context/PRD.md) / [`BR-04`](project-context/PRD.md) / [`AC-07`](project-context/PRD.md) / [`AC-08`](project-context/PRD.md)
   - **Acceptance Criteria:**
-    - [ ] Only approved suggestion ids stored
-    - [ ] Zero approvals → no rewrite record possible (BR-04)
-    - [ ] Task 4.5 tests pass
+    - [x] Only approved suggestion ids stored
+    - [x] Zero approvals → no rewrite record possible (BR-04)
+    - [x] Task 4.5 tests pass
+
+> **Fixtures (testing manual):** `project-context/cv-test/` berisi CV pribadi
+> (PDF) milik user untuk uji end-to-end setelah produk jadi. Folder ini
+> **gitignored** (`project-context/cv-test/`) — jangan commit. Dipakai pada
+> testing manual Phase 6-7 (upload nyata ke backend + frontend), bukan untuk
+> unit test.
+
+---
+
+## Phase 4: Code Review Notes (backlog)
+> **Reviewed:** 2026-08-06 | **Status:** ✅ PASS (0 BLOCKER / 0 MAJOR, 2 MINOR
+> + 1 INFO) | Minor CR-18 & CR-08 sudah difix. Sisanya dicatat di sini agar
+> ditangani saat task/phase terkait.
+
+- **[INFO] CR-07 — `getLatestReviewIdByCvId` hanya dipakai test, bukan kode
+  produksi.** `listCvs` menghitung review terakhir via subquery SQL, jadi ada
+  dua jalur logika serupa. **Fix saat Task 5.1/5.2 atau 6.2:** pakai fungsi
+  repo itu di dalam `listCvs` (hilangkan subquery) ATAU beri komentar
+  `tradeoff:` bahwa ia disimpan untuk keperluan Phase 5/6.
+- **[MINOR → FIXED] CR-18 — Skor model `0` dianggap gagal.** Model yang
+  menilai CV 0/100 akan diganti skor deterministik. Sudah difix:
+  `AnalyzeReport.overallScore` menjadi `number | null` (null = tidak ada skor),
+  `composeReport` memakai `??` fallback. **Pola ini WAJIB ditiru di Phase 5**
+  saat komposisi `postScore` (Task 5.3) agar post-check skor 0 tidak diabaikan.
+- **[MINOR → FIXED] CR-08 — `parseId` diduplikasi 3 router.** Sudah dipindah ke
+  `backend/src/utils/route-id.ts`. **Gunakan util ini saat menambah route baru**
+  (mis. `rewrites.ts` di Task 5.4).
 
 ---
 
@@ -343,8 +378,11 @@
   - **Traceability IDs:** [`BR-07`](project-context/PRD.md) / [`NFR-02`](project-context/PRD.md)
   - **Acceptance Criteria:**
     - [ ] Analyze + rewrite calls implemented
-    - [ ] Request timeout configured (< 60s)
+    - [ ] Request timeout configured (via `N8N_TIMEOUT_MS`, default 300000 ms — model free bisa lambat, lihat NFR-02)
     - [ ] Task 5.1 tests pass
+  - **Implementation (note):** `analyzeCv` di `backend/src/services/n8n-proxy.ts` sudah
+    diimplementasikan lebih awal (dibutuhkan endpoint analyze, Task 4.6). Task 5.2 tinggal
+    menambahkan `rewriteCv` + post-check call; Task 5.1 (`n8n-proxy.test.ts`) belum ada.
 
 - [ ] **Task 5.3: Rewrite + post-check composition tests**
   - **Files:** `backend/src/services/rewrite.test.ts`

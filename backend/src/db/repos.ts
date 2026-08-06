@@ -258,6 +258,13 @@ export function getTargetJobById(db: DatabaseSync, id: number): TargetJob | unde
   return row === undefined ? undefined : toTargetJob(row)
 }
 
+export function getLatestTargetJobByCvId(db: DatabaseSync, cvId: number): TargetJob | undefined {
+  const row = db
+    .prepare('SELECT * FROM target_jobs WHERE cv_id = ? ORDER BY id DESC LIMIT 1')
+    .get(cvId) as TargetJobRow | undefined
+  return row === undefined ? undefined : toTargetJob(row)
+}
+
 export function insertReview(db: DatabaseSync, input: NewReview): number {
   return lastId(
     db,

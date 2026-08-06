@@ -90,7 +90,7 @@ function parseScore(raw: unknown): number {
 
 - **Auth:** No authentication in v1 (single-user local tool, BR-10). Webhooks are open on localhost.
 - **Input Sanitization:** Validate all input before processing. Upload must be a PDF (reject otherwise, 415); target job description required (400).
-- **Environment Variables:** Never hardcode secrets, URLs, or config. All env vars exist in `.env.example` (PORT, N8N_URL, N8N_ANALYZE_PATH, N8N_REWRITE_PATH, DB_PATH, OPENROUTER_FREE_MODELS).
+- **Environment Variables:** Never hardcode secrets, URLs, or config. All env vars exist in `.env.example` (PORT, N8N_URL, N8N_ANALYZE_PATH, N8N_REWRITE_PATH, DB_PATH, OPENROUTER_FREE_MODELS, N8N_TIMEOUT_MS).
 - **Query Security:** Always use prepared statements / parameterized queries with `node:sqlite`. NEVER concatenate user input into SQL.
 - **XSS:** Avoid `dangerouslySetInnerHTML`. The frontend renders structured JSON report data (no raw HTML from models).
 - **CORS:** Dev CORS limited to the frontend origin (`http://localhost:<frontend-port>`). Never use `*`.
