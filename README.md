@@ -3,8 +3,8 @@
 Aplikasi web lokal untuk menganalisis CV terhadap deskripsi pekerjaan target, memberi skor ATS, dan menulis ulang CV (hanya dengan persetujuan Anda) menggunakan model AI gratis.
 
 ![Node.js](https://img.shields.io/badge/Node-22.5-339933?logo=node.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
-![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
 ![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?logo=tailwindcss&logoColor=white)
@@ -54,14 +54,47 @@ Tantangan terbesar dalam pembuatan aplikasi ini:
 - **TypeScript di seluruh kode** — satu bahasa untuk frontend, backend, dan logika ATS; backend menangani semua parsing & aturan deterministik.
 - **SQLite (`node:sqlite`)** — penyimpanan lokal tanpa step compile native (Node ≥ 22.5); n8n tidak menyentuh database.
 - **Express** — REST API sekaligus proxy ke n8n; frontend hanya bicara ke Express sehingga kunci API OpenRouter tidak pernah terekspos ke browser.
-- **React + Vite + Tailwind CSS** — UI dashboard minimal dan ringan untuk halaman Upload, Analysis, Approval, dan Rewrite.
-- **Vitest** — unit test untuk koneksi database dan repository (tanpa native dep).
+- **React + Vite + Tailwind CSS + shadcn/ui** — UI dashboard minimal dan ringan untuk halaman Upload, Analysis, Approval, Result, dan History.
+- **Vitest** — unit test backend (repository, ATS engine, parser, export) + frontend (React Testing Library).
 
 ---
 
 ## Screenshot
 
 > Screenshot menyusul — akan dilengkapi setelah UI final.
+
+---
+
+## Catatan Model AI Gratis (OpenRouter)
+
+Aplikasi ini memakai **model AI gratis OpenRouter** (akhiran `:free`) untuk
+menganalisis dan menulis ulang CV. Model gratis dapat **dihapus, diubah
+batasnya, atau menjadi tidak tersedia** sewaktu-waktu tanpa pemberitahuan.
+Jika model yang dipakai sudah tidak tersedia, analisis/rewrite akan gagal.
+
+Sebelum menjalankan, cek model gratis yang **masih tersedia**:
+https://openrouter.ai/models?max_price=0
+
+### Cara memeriksa / mengganti model
+
+Nama model ditulis langsung di node HTTP Request pada workflow n8n:
+
+- `n8n/workflows/cv-ats-analyze.json` → node `Analyze - Model 1/2/3`
+- `n8n/workflows/cv-ats-rewrite.json` → node `Rewrite - Model 1/2/3` dan
+  `Post-Check Model 1/2/3`
+
+Langkah:
+
+1. Buka UI n8n (`npm run n8n:run` → `http://localhost:5678`).
+2. Buka workflow `CV ATS Analyze` / `CV ATS Rewrite`.
+3. Ganti nilai kolom **model** pada tiap node HTTP Request dengan model baru —
+   bisa model gratis lain yang masih tersedia, atau model berbayar (mis.
+   `openai/gpt-4o-mini`, `anthropic/claude-3.5-haiku`, dsb.).
+4. Simpan workflow. (Jika mengganti lewat file JSON, impor ulang di n8n.)
+
+> Catatan: variabel `OPENROUTER_FREE_MODELS` di `.env` hanya dokumentasi urutan
+> failover untuk referensi — nilai yang benar-benar dipakai adalah model yang
+> dikonfigurasi di node HTTP n8n di atas. Keduanya harus diselaraskan.
 
 ---
 
@@ -74,42 +107,110 @@ git clone https://github.com/Qidil/cv-ats-reviewer-n8n.git
 cd cv-ats-reviewer-n8n
 npm install
 npm --prefix backend install
+npm --prefix frontend install
 ```
 
-### 2. Konfigurasi
+### 2. Konfigurasi `.env`
 
 ```bash
 cp .env.example .env
-# isi nilai di .env sesuai lingkungan Anda
 ```
 
-### 3. Jalankan n8n (AI orchestration)
+Lalu isi variabel berikut di file `.env`:
 
-```bash
-npm run n8n:run
-```
+| Variabel | Wajib? | Penjelasan | Contoh |
+|----------|--------|-----------|--------|
+| `PORT` | Ya | Port backend Express API | `3001` |
+| `FRONTEND_ORIGIN` | Ya | Origin frontend yang diizinkan CORS | `http://localhost:5173` |
+| `N8N_URL` | Ya | Alamat instance n8n (lihat catatan lokal/cloud di bawah) | `http://localhost:5678` |
+| `N8N_ANALYZE_PATH` | Ya | Path webhook analyze n8n | `cv-analyze` |
+| `N8N_REWRITE_PATH` | Ya | Path webhook rewrite n8n | `cv-rewrite` |
+| `N8N_TIMEOUT_MS` | Ya | Batas waktu tunggu webhook (ms); model free lambat | `300000` |
+| `DB_PATH` | Ya | Lokasi file database SQLite | `./data/app.db` |
+| `OPENROUTER_FREE_MODELS` | Ya* | Daftar model gratis (urut = prioritas failover) | `nvidia/nemotron-3-ultra-550b-a55b:free,...` |
 
-Import workflow dari `n8n/workflows/cv-ats-analyze.json` dan `cv-ats-rewrite.json` di UI n8n, lalu atur kredensial **OpenRouter** (free models).
+\* `OPENROUTER_FREE_MODELS` hanya referensi — model yang benar-benar dipakai
+dikonfigurasi di node HTTP n8n (lihat section "Catatan Model AI Gratis").
 
-### 4. Menjalankan Development Server
+> **Catatan n8n lokal vs cloud:** Proyek ini dirancang dengan **n8n lokal**
+> (`http://localhost:5678`). Jika Anda memakai **n8n Cloud** (atau n8n di
+> server/mesin lain), sesuaikan `N8N_URL` di `.env` dengan alamat instance
+> tersebut (mis. `https://<subdomain>.n8n.cloud`), pastikan endpoint webhook
+> (`cv-analyze`, `cv-rewrite`) dapat diakses dari backend, dan periksa kembali
+> kebijakan autentikasi/CORS webhook di sisi n8n — path webhook tetap sama.
 
-```bash
-npm run dev
-```
+> Kunci API OpenRouter **tidak** diisi di `.env` — dimasukkan langsung di
+> kredensial n8n saat setup workflow di UI n8n (section Menjalankan Development).
 
-Backend berjalan di `http://localhost:3001`, frontend di `http://localhost:5173`.
-
-### 5. Build Produksi
+### 3. Build Produksi
 
 ```bash
 npm run build
 ```
 
-### 6. Test, Lint & Format
+### 4. Test, Lint & Format
 
 ```bash
-npm --prefix backend run test  # unit test
-npm run lint                   # cek kode
-npm run typecheck              # type-check seluruh proyek
-npm run format                 # rapikan format
+npm --prefix backend run test   # unit test backend
+npm --prefix frontend run test  # unit test frontend (Vitest + RTL)
+npm run lint                    # cek kode
+npm run typecheck               # type-check seluruh proyek
+npm run format                  # rapikan format
 ```
+
+### 5. Menjalankan Development (butuh 3 terminal / PowerShell)
+
+Proyek ini terdiri dari tiga proses yang berjalan bersamaan: **n8n**, **backend**,
+dan **frontend**. Buka tiga jendela terminal/PowerShell di folder proyek lalu
+jalankan satu per satu.
+
+**Terminal 1 — n8n (AI orchestration):**
+
+```bash
+npm run n8n:run
+```
+
+- UI n8n terbuka di `http://localhost:5678` (asumsi **n8n lokal**; jika memakai
+  n8n Cloud, skip langkah ini dan buka UI instance cloud Anda).
+- Import workflow `n8n/workflows/cv-ats-analyze.json` dan
+  `cv-ats-rewrite.json` di UI n8n.
+- Buat/isi kredensial **OpenRouter** (masukkan kunci API Anda) di node HTTP
+  tiap workflow.
+- **Aktifkan** (toggle aktif) kedua workflow.
+- Sesuaikan `N8N_URL` di `.env` bila instance n8n bukan lokal
+  (lihat panduan Konfigurasi).
+
+**Terminal 2 — Backend (Express API):**
+
+```bash
+npm run dev:backend
+```
+
+- Backend berjalan di `http://localhost:3001`.
+
+**Terminal 3 — Frontend (React/Vite):**
+
+```bash
+npm run dev:frontend
+```
+
+- Frontend berjalan di `http://localhost:5173`.
+
+> Alternatif: `npm run dev` menjalankan backend + frontend sekaligus dalam satu
+> terminal (via `concurrently`) — praktis bila n8n sudah berjalan di terminal
+> terpisah (total 2 terminal).
+
+### 6. Alur Tes Manual (end-to-end via UI)
+
+1. Pastikan ketiga proses di atas berjalan dan kedua workflow n8n aktif.
+2. Buka `http://localhost:5173` di browser.
+3. **Upload** — pilih file CV (PDF), klik *Lanjut*, isi judul + deskripsi
+   pekerjaan target (wajib), klik *Analisis CV*. Tunggu hasil (model free bisa
+   1–5 menit).
+4. **Analysis** — lihat skor ATS, cek per-aturan, kelemahan, dan saran.
+5. **Approval** — centang minimal satu saran, klik *Setujui & Rewrite*. Tunggu
+   proses rewrite (1–5 menit).
+6. **Result** — lihat CV hasil rewrite, skor post-check, peringatan informasi
+   yang hilang; unduh **PDF** dan **DOCX**.
+7. **History** — buka halaman Riwayat (`/history`) untuk melihat semua CV yang
+   pernah diunggah.
