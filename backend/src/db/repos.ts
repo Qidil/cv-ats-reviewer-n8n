@@ -306,13 +306,6 @@ export function getReviewById(db: DatabaseSync, id: number): Review | undefined 
   return row === undefined ? undefined : toReview(row)
 }
 
-export function getLatestReviewIdByCvId(db: DatabaseSync, cvId: number): number | undefined {
-  const row = db
-    .prepare('SELECT id FROM reviews WHERE cv_id = ? ORDER BY id DESC LIMIT 1')
-    .get(cvId) as { id: number } | undefined
-  return row?.id
-}
-
 export function insertApproval(db: DatabaseSync, input: NewApproval): number {
   return lastId(
     db,

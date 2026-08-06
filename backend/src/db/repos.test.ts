@@ -12,7 +12,6 @@ import {
   getTargetJobById,
   insertReview,
   getReviewById,
-  getLatestReviewIdByCvId,
   insertApproval,
   getApprovalById,
   getLatestApprovalByReviewId,
@@ -129,15 +128,6 @@ describe('reviews repository', () => {
     ])
     expect(review?.weaknesses).toEqual(['weak'])
     expect(review?.suggestions[0]?.priority).toBe('high')
-  })
-
-  it('gets the latest review id per cv', () => {
-    const cvId = seedCv()
-    const targetJobId = insertTargetJob(db!, { cvId, title: null, description: 'JD' })
-    const first = insertReview(db!, { cvId, targetJobId, overallScore: 50, atsChecks: [], weaknesses: [], suggestions: [], modelUsed: 'a' })
-    const second = insertReview(db!, { cvId, targetJobId, overallScore: 90, atsChecks: [], weaknesses: [], suggestions: [], modelUsed: 'b' })
-    expect(getLatestReviewIdByCvId(db!, cvId)).toBe(second)
-    expect(getLatestReviewIdByCvId(db!, cvId)).not.toBe(first)
   })
 })
 
