@@ -15,8 +15,11 @@ backend/data/*.db
 backend/data/*.db-journal
 backend/data/uploads/
 
-# Private test fixtures (contains personal CV)
-project-context/cv-test/
+# Project spec documents & private test fixtures (local-only, not pushed)
+project-context/
+
+# Manual test output (exported PDF/DOCX)
+backend/scripts/test-output/
 
 # n8n local instance data
 .n8n/
