@@ -1,0 +1,249 @@
+{
+  "name": "CV ATS Analyze",
+  "nodes": [
+    {
+      "id": "38bd672e-c8a6-4940-a42c-6c2dfd83f370",
+      "name": "CV Analyze Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cv-analyze",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "webhookId": "e395c290-b393-426e-9b43-c0b115c33fa3"
+    },
+    {
+      "id": "939ca960-0804-4bfd-9f29-4bbce28feb1b",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [224, 0],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cv-id",
+              "name": "cvId",
+              "value": "={{ $json.body?.cvId ?? $json.cvId ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "cv-text",
+              "name": "cvText",
+              "value": "={{ $json.body?.cvText ?? $json.cvText ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "jd",
+              "name": "targetJobDescription",
+              "value": "={{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? \"\" }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3a36885a-7c1f-4b1b-8ef5-91928fe63a12",
+      "name": "Analyze - Model 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [540, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penilai ATS (Applicant Tracking System) untuk CV. Analisis kecocokan CV terhadap deskripsi pekerjaan (JD). Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
+            },
+            {
+              "role": "user",
+              "content": "=CV:\n{{ $json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $json.targetJobDescription }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 2048
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "bc42474d-060b-4ee2-83f2-b2844a845fbd",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 0],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "model",
+              "name": "model",
+              "value": "={{ $json.model }}",
+              "type": "string"
+            },
+            {
+              "id": "raw",
+              "name": "raw",
+              "value": "={{ $json.choices?.[0]?.message?.content ?? \"\" }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "237ca90b-2dc8-42ed-a5f6-2fa73d672fb8",
+      "name": "Analyze - Model 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [540, 480],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "openai/gpt-oss-120b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penilai ATS (Applicant Tracking System) untuk CV. Analisis kecocokan CV terhadap deskripsi pekerjaan (JD). Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
+            },
+            {
+              "role": "user",
+              "content": "=CV:\n{{ $json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $json.targetJobDescription }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 2048
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "f6825976-08a9-497c-96ea-b8f4537c1237",
+      "name": "Analyze - Model 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [540, 660],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penilai ATS (Applicant Tracking System) untuk CV. Analisis kecocokan CV terhadap deskripsi pekerjaan (JD). Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
+            },
+            {
+              "role": "user",
+              "content": "=CV:\n{{ $json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $json.targetJobDescription }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 2048
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "CV Analyze Webhook": {
+      "main": [
+        [
+          { "node": "Normalize Input", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          { "node": "Analyze - Model 1", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Analyze - Model 1": {
+      "main": [
+        [
+          { "node": "Format Output", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Analyze - Model 2", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Analyze - Model 2": {
+      "main": [
+        [
+          { "node": "Format Output", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Analyze - Model 3", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Analyze - Model 3": {
+      "main": [
+        [
+          { "node": "Format Output", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  }
+}

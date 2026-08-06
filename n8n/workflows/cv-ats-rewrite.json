@@ -1,0 +1,470 @@
+{
+  "name": "CV ATS Rewrite",
+  "nodes": [
+    {
+      "id": "f5831ae0-0484-41d4-bb8c-b6888838408b",
+      "name": "CV Rewrite Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cv-rewrite",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "webhookId": "ba26c5dc-90e4-4a8c-af97-7e5972356fd9"
+    },
+    {
+      "id": "3d5efaaa-c6fb-4d85-9382-bcaedc6af50d",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [224, 0],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cv-id",
+              "name": "cvId",
+              "value": "={{ $json.body?.cvId ?? $json.cvId ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "jd",
+              "name": "targetJobDescription",
+              "value": "={{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "cv-text",
+              "name": "originalCv",
+              "value": "={{ $json.body?.originalCv ?? $json.originalCv ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "suggestions",
+              "name": "approvedSuggestions",
+              "value": "={{ $json.body?.approvedSuggestions ?? $json.approvedSuggestions ?? [] }}",
+              "type": "array"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6584db8a-fc52-4aa7-b849-1e85e1ff043d",
+      "name": "Rewrite - Model 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [540, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 4096
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "4d0b3070-f5b4-4961-ba05-78aaa3c9ace2",
+      "name": "Capture Rewrite",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 0],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "model",
+              "name": "model",
+              "value": "={{ $json.model }}",
+              "type": "string"
+            },
+            {
+              "id": "raw",
+              "name": "raw",
+              "value": "={{ $json.choices?.[0]?.message?.content ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "orig",
+              "name": "originalCv",
+              "value": "={{ $(\"Normalize Input\").item.json.originalCv }}",
+              "type": "string"
+            },
+            {
+              "id": "jd",
+              "name": "targetJobDescription",
+              "value": "={{ $(\"Normalize Input\").item.json.targetJobDescription }}",
+              "type": "string"
+            },
+            {
+              "id": "sug",
+              "name": "approvedSuggestions",
+              "value": "={{ $(\"Normalize Input\").item.json.approvedSuggestions }}",
+              "type": "array"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6f1c20ee-f47e-46ea-929d-4165b3894b93",
+      "name": "Rewrite - Model 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [540, 480],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "openai/gpt-oss-120b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 4096
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "f506958a-c496-4360-ab11-adc7009906b5",
+      "name": "Rewrite - Model 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [540, 660],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 4096
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "155a042d-9c60-4fe2-8c37-45aa1a4cc38c",
+      "name": "Post-Check Model 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1120, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 1024
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "86ef102d-54ad-425f-988a-c13fcca62acd",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2016, 0],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "model",
+              "name": "model",
+              "value": "={{ $(\"Capture Rewrite\").item.json.model }}",
+              "type": "string"
+            },
+            {
+              "id": "raw",
+              "name": "raw",
+              "value": "={{ $(\"Capture Rewrite\").item.json.raw }}",
+              "type": "string"
+            },
+            {
+              "id": "post-model",
+              "name": "postCheckModel",
+              "value": "={{ $json.model }}",
+              "type": "string"
+            },
+            {
+              "id": "post-raw",
+              "name": "postCheckRaw",
+              "value": "={{ $json.choices?.[0]?.message?.content ?? \"\" }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fb80cf2b-fd78-4e55-bb0e-9917abec43e5",
+      "name": "Post-Check Model 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1120, 480],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "openai/gpt-oss-120b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 1024
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "e2659ca5-fd51-4794-a0c3-c3163459fccb",
+      "name": "Post-Check Model 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1120, 660],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 1024
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "CV Rewrite Webhook": {
+      "main": [
+        [
+          { "node": "Normalize Input", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          { "node": "Rewrite - Model 1", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Rewrite - Model 1": {
+      "main": [
+        [
+          { "node": "Capture Rewrite", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Rewrite - Model 2", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Capture Rewrite": {
+      "main": [
+        [
+          { "node": "Post-Check Model 1", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Rewrite - Model 2": {
+      "main": [
+        [
+          { "node": "Capture Rewrite", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Rewrite - Model 3", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Rewrite - Model 3": {
+      "main": [
+        [
+          { "node": "Capture Rewrite", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Post-Check Model 1": {
+      "main": [
+        [
+          { "node": "Format Output", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Post-Check Model 2", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Post-Check Model 2": {
+      "main": [
+        [
+          { "node": "Format Output", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Post-Check Model 3", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Post-Check Model 3": {
+      "main": [
+        [
+          { "node": "Format Output", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "cv-ats-reviewer-n8n",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CV ATS Reviewer — analisis & rewrite CV dengan AI (n8n + OpenRouter free models), frontend React/TS/Tailwind, database SQLite lokal.",
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "start": "npm --prefix backend run start",
+    "n8n:run": "n8n start",
+    "lint": "eslint .",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.66.0"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

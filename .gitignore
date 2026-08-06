@@ -10,12 +10,22 @@ build/
 .env.*.local
 
 # SQLite & uploads
+data/
 backend/data/*.db
 backend/data/*.db-journal
 backend/data/uploads/
 
+# Private test fixtures (contains personal CV)
+project-context/cv-test/
+
 # n8n local instance data
 .n8n/
+
+# Local tooling state (not source)
+.codebase-memory/
+.agents/
+.opencode/skill/
+skills-lock.json
 
 # Logs
 *.log
