@@ -6,6 +6,7 @@ import { openAppDb } from './db/connection.js'
 import { createCvsRouter } from './routes/cvs.js'
 import { createReviewsRouter } from './routes/reviews.js'
 import { createApprovalsRouter } from './routes/approvals.js'
+import { createRewritesRouter } from './routes/rewrites.js'
 
 const MAX_CV_BYTES = 5 * 1024 * 1024
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
@@ -41,6 +42,7 @@ export function createApp(db: DatabaseSync): express.Express {
   app.use('/api/cvs', createCvsRouter(db))
   app.use('/api/reviews', createReviewsRouter(db))
   app.use('/api', createApprovalsRouter(db))
+  app.use('/api', createRewritesRouter(db))
   app.use(errorHandler)
   return app
 }

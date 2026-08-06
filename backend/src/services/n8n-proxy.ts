@@ -4,9 +4,23 @@ export interface AnalyzePayload {
   targetJobDescription: string
 }
 
-export interface AnalyzeResult {
+export type AnalyzeResult = {
   model: string
   raw: string
+}
+
+export interface RewritePayload {
+  cvId: number
+  targetJobDescription: string
+  originalCv: string
+  approvedSuggestions: unknown[]
+}
+
+export type RewriteResult = {
+  model: string
+  raw: string
+  postCheckModel: string | null
+  postCheckRaw: string | null
 }
 
 export class N8nProxyError extends Error {
@@ -30,7 +44,43 @@ function n8nWebhookUrl(path: string): string {
 }
 
 export async function analyzeCv(payload: AnalyzePayload): Promise<AnalyzeResult> {
-  const url = n8nWebhookUrl(process.env.N8N_ANALYZE_PATH ?? 'cv-analyze')
+  const data = await postWebhook<AnalyzeResult>(
+    process.env.N8N_ANALYZE_PATH ?? 'cv-analyze',
+    payload,
+    (data): data is AnalyzeResult =>
+      typeof data.model === 'string' && typeof data.raw === 'string',
+  )
+  return { model: data.model, raw: data.raw }
+}
+
+export async function rewriteCv(payload: RewritePayload): Promise<RewriteResult> {
+  const data = await postWebhook<RewriteResult>(
+    process.env.N8N_REWRITE_PATH ?? 'cv-rewrite',
+    payload,
+    (data): data is RewriteResult =>
+      typeof data.model === 'string' &&
+      typeof data.raw === 'string' &&
+      (data.postCheckModel === undefined ||
+        data.postCheckModel === null ||
+        typeof data.postCheckModel === 'string') &&
+      (data.postCheckRaw === undefined ||
+        data.postCheckRaw === null ||
+        typeof data.postCheckRaw === 'string'),
+  )
+  return {
+    model: data.model,
+    raw: data.raw,
+    postCheckModel: data.postCheckModel ?? null,
+    postCheckRaw: data.postCheckRaw ?? null,
+  }
+}
+
+async function postWebhook<T extends Record<string, unknown>>(
+  path: string,
+  payload: unknown,
+  validate: (data: Record<string, unknown>) => data is T,
+): Promise<T> {
+  const url = n8nWebhookUrl(path)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), n8nTimeoutMs())
   try {
@@ -43,11 +93,11 @@ export async function analyzeCv(payload: AnalyzePayload): Promise<AnalyzeResult>
     if (!response.ok) {
       throw new N8nProxyError(`Webhook n8n gagal (HTTP ${response.status}).`)
     }
-    const data = (await response.json()) as { model?: unknown; raw?: unknown }
-    if (typeof data.model !== 'string' || typeof data.raw !== 'string') {
-      throw new N8nProxyError('Respons webhook n8n tidak sesuai kontrak { model, raw }.')
+    const data = (await response.json()) as Record<string, unknown>
+    if (!validate(data)) {
+      throw new N8nProxyError('Respons webhook n8n tidak sesuai kontrak.')
     }
-    return { model: data.model, raw: data.raw }
+    return data
   } catch (error) {
     if (error instanceof N8nProxyError) throw error
     throw new N8nProxyError('Gagal terhubung ke n8n.')

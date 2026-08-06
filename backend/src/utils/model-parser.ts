@@ -149,3 +149,34 @@ export function parseAnalyzeReport(raw: string): AnalyzeReport {
 
   throw new ModelParseError('Tidak ditemukan JSON yang valid pada output model.')
 }
+
+export interface PostCheckReport {
+  postScore: number | null
+  warnings: string[]
+}
+
+function normalizePostCheck(parsed: Record<string, unknown>): PostCheckReport {
+  return {
+    postScore: parseOverallScore(parsed.postScore),
+    warnings: toWeaknesses(parsed.warnings),
+  }
+}
+
+export function parsePostCheckRaw(raw: string): PostCheckReport {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    return { postScore: null, warnings: [] }
+  }
+
+  const fenced = extractFenced(raw)
+  if (fenced !== null) {
+    const parsed = tryParseObject(fenced)
+    if (parsed !== null) return normalizePostCheck(parsed)
+  }
+
+  for (const candidate of extractBalancedObjects(raw)) {
+    const parsed = tryParseObject(candidate)
+    if (parsed !== null) return normalizePostCheck(parsed)
+  }
+
+  return { postScore: null, warnings: [] }
+}
