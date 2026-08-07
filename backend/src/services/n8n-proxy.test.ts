@@ -90,7 +90,7 @@ describe('analyzeCv — n8n webhook proxy', () => {
     ).rejects.toThrow(N8nProxyError)
   })
 
-  it('uses N8N_TIMEOUT_MS when set, otherwise the default 300s timeout', async () => {
+  it('uses N8N_TIMEOUT_MS when set, otherwise the default 600s timeout', async () => {
     vi.stubEnv('N8N_TIMEOUT_MS', '5000')
     const timeoutSpy = vi.spyOn(globalThis, 'setTimeout')
     mockFetchOnce(VALID_BODY)

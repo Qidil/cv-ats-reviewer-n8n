@@ -34,12 +34,6 @@
         "assignments": {
           "assignments": [
             {
-              "id": "cv-id",
-              "name": "cvId",
-              "value": "={{ $json.body?.cvId ?? $json.cvId ?? 0 }}",
-              "type": "number"
-            },
-            {
               "id": "cv-text",
               "name": "cvText",
               "value": "={{ $json.body?.cvText ?? $json.cvText ?? \"\" }}",
@@ -88,7 +82,7 @@
           "max_tokens": 2048
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -161,7 +155,7 @@
           "max_tokens": 2048
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -205,7 +199,7 @@
           "max_tokens": 2048
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -249,7 +243,7 @@
           "max_tokens": 2048
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -293,7 +287,7 @@
           "max_tokens": 2048
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",

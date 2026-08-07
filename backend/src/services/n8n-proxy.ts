@@ -30,7 +30,8 @@ export class N8nProxyError extends Error {
   }
 }
 
-const DEFAULT_TIMEOUT_MS = 300_000
+// Worst-case chain: rewrite (5 x 60s) + post-check (5 x 60s) = 600s.
+const DEFAULT_TIMEOUT_MS = 600_000
 
 function n8nTimeoutMs(): number {
   const raw = process.env.N8N_TIMEOUT_MS

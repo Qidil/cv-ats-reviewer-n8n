@@ -34,12 +34,6 @@
         "assignments": {
           "assignments": [
             {
-              "id": "cv-id",
-              "name": "cvId",
-              "value": "={{ $json.body?.cvId ?? $json.cvId ?? 0 }}",
-              "type": "number"
-            },
-            {
               "id": "jd",
               "name": "targetJobDescription",
               "value": "={{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? \"\" }}",
@@ -94,7 +88,7 @@
           "max_tokens": 4096
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -186,7 +180,7 @@
           "max_tokens": 4096
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -230,7 +224,7 @@
           "max_tokens": 4096
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -274,7 +268,7 @@
           "max_tokens": 4096
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -318,7 +312,7 @@
           "max_tokens": 4096
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -365,7 +359,7 @@
           }
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -453,7 +447,7 @@
           }
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -500,7 +494,7 @@
           }
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -547,7 +541,7 @@
           }
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",
@@ -594,7 +588,7 @@
           }
         },
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "onError": "continueErrorOutput",

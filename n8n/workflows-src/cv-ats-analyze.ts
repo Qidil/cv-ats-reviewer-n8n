@@ -25,7 +25,6 @@ const normalizeInput = node({
       includeOtherFields: true,
       assignments: {
         assignments: [
-          { id: 'cv-id', name: 'cvId', value: expr('{{ $json.body?.cvId ?? $json.cvId ?? 0 }}'), type: 'number' },
           { id: 'cv-text', name: 'cvText', value: expr('{{ $json.body?.cvText ?? $json.cvText ?? "" }}'), type: 'string' },
           { id: 'jd', name: 'targetJobDescription', value: expr('{{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? "" }}'), type: 'string' },
         ],
@@ -65,7 +64,7 @@ const analyzeM1 = node({
         temperature: 0.2,
         max_tokens: 2048,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -95,7 +94,7 @@ const analyzeM2 = node({
         temperature: 0.2,
         max_tokens: 2048,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -125,7 +124,7 @@ const analyzeM3 = node({
         temperature: 0.2,
         max_tokens: 2048,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -155,13 +154,16 @@ const analyzeM4 = node({
         temperature: 0.2,
         max_tokens: 2048,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
   },
 })
 
+// tradeoff (CR-18 INFO): Model 5 adalah model terakhir — tanpa If-node validasi.
+// Jika seluruh rantai gagal, error Model 5 mengalir ke Format Output (raw kosong)
+// dan backend melaporkan error kontrak generik. Diterima sebagai desain last-resort.
 const analyzeM5 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
@@ -185,12 +187,19 @@ const analyzeM5 = node({
         temperature: 0.2,
         max_tokens: 2048,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
+    // CR-24 INFO: credential ID di bawah terikat ke instance n8n lokal (id dari
+    // credential store). Saat import ke instance lain, konek ulang kredensial
+    // OpenRouter di setiap node HTTP (lihat README).
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
   },
 })
+
+// Catatan (CR-08): blok validasi di bawah sengaja diduplikasi per model, karena
+// parser n8n Workflow SDK menolak function/arrow function — satu-satunya cara
+// valid adalah deklarasi ifElse inline per model (kendala DSL deklaratif SDK).
 
 const analyzeValidM1 = ifElse({
   version: 2.3,

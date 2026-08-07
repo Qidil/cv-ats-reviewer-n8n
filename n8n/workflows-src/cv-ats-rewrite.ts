@@ -25,7 +25,6 @@ const normalizeInput = node({
       includeOtherFields: true,
       assignments: {
         assignments: [
-          { id: 'cv-id', name: 'cvId', value: expr('{{ $json.body?.cvId ?? $json.cvId ?? 0 }}'), type: 'number' },
           { id: 'jd', name: 'targetJobDescription', value: expr('{{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? "" }}'), type: 'string' },
           { id: 'cv-text', name: 'originalCv', value: expr('{{ $json.body?.originalCv ?? $json.originalCv ?? "" }}'), type: 'string' },
           { id: 'suggestions', name: 'approvedSuggestions', value: expr('{{ $json.body?.approvedSuggestions ?? $json.approvedSuggestions ?? [] }}'), type: 'array' },
@@ -68,7 +67,7 @@ const rewriteM1 = node({
         temperature: 0.2,
         max_tokens: 4096,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -98,7 +97,7 @@ const rewriteM2 = node({
         temperature: 0.2,
         max_tokens: 4096,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -128,7 +127,7 @@ const rewriteM3 = node({
         temperature: 0.2,
         max_tokens: 4096,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -158,13 +157,16 @@ const rewriteM4 = node({
         temperature: 0.2,
         max_tokens: 4096,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
   },
 })
 
+// tradeoff (CR-18 INFO): Rewrite Model 5 adalah model terakhir — tanpa If-node
+// validasi. Jika seluruh rantai gagal, Capture Rewrite menerima output kosong dan
+// backend melaporkan error kontrak generik. Diterima sebagai desain last-resort.
 const rewriteM5 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
@@ -188,9 +190,12 @@ const rewriteM5 = node({
         temperature: 0.2,
         max_tokens: 4096,
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
+    // CR-24 INFO: credential ID di bawah terikat ke instance n8n lokal (id dari
+    // credential store). Saat import ke instance lain, konek ulang kredensial
+    // OpenRouter di setiap node HTTP (lihat README).
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
   },
 })
@@ -255,7 +260,7 @@ const postM1 = node({
         max_tokens: 4096,
         response_format: { type: 'json_object' },
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -286,7 +291,7 @@ const postM2 = node({
         max_tokens: 4096,
         response_format: { type: 'json_object' },
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -317,7 +322,7 @@ const postM3 = node({
         max_tokens: 4096,
         reasoning: { enabled: false },
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
@@ -348,13 +353,16 @@ const postM4 = node({
         max_tokens: 4096,
         reasoning: { enabled: false },
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
   },
 })
 
+// tradeoff (CR-18 INFO): Post-Check Model 5 adalah model terakhir — tanpa If-node
+// validasi. Jika seluruh rantai post-check gagal, Format Output menerima output
+// kosong dan backend melaporkan error kontrak generik. Diterima sebagai desain last-resort.
 const postM5 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
@@ -379,12 +387,16 @@ const postM5 = node({
         max_tokens: 4096,
         reasoning: { enabled: false },
       },
-      options: { timeout: 120000 },
+      options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
   },
 })
+
+// Catatan (CR-08): blok validasi di bawah sengaja diduplikasi per model, karena
+// parser n8n Workflow SDK menolak function/arrow function — satu-satunya cara
+// valid adalah deklarasi ifElse inline per model (kendala DSL deklaratif SDK).
 
 const rewriteValidM1 = ifElse({
   version: 2.3,

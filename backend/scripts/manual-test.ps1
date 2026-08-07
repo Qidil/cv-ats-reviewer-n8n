@@ -80,6 +80,20 @@ $pdfPath = Join-Path $outDir "rewrite-$rewriteId.pdf"
 $docxPath = Join-Path $outDir "rewrite-$rewriteId.docx"
 & curl.exe -s -o $pdfPath "$BaseUrl/api/rewrites/$rewriteId/export?format=pdf"
 & curl.exe -s -o $docxPath "$BaseUrl/api/rewrites/$rewriteId/export?format=docx"
+
+function Assert-ValidExport {
+  param([string]$Path, [string]$Format, [byte[]]$MagicBytes)
+  if (-not (Test-Path -LiteralPath $Path)) { throw "File ekspor tidak dibuat: $Path" }
+  $bytes = [System.IO.File]::ReadAllBytes($Path)
+  if ($bytes.Length -lt $MagicBytes.Length) { throw "File ekspor $Format terlalu kecil ($($bytes.Length) bytes) — kemungkinan respons error." }
+  $head = $bytes[0..($MagicBytes.Length - 1)]
+  for ($i = 0; $i -lt $MagicBytes.Length; $i++) {
+    if ($head[$i] -ne $MagicBytes[$i]) { throw "File ekspor $Format tidak valid (signature salah): $Path" }
+  }
+}
+
+Assert-ValidExport -Path $pdfPath -Format 'PDF' -MagicBytes ([byte[]](0x25, 0x50, 0x44, 0x46))
+Assert-ValidExport -Path $docxPath -Format 'DOCX' -MagicBytes ([byte[]](0x50, 0x4B, 0x03, 0x04))
 Write-Host "  PDF:  $pdfPath  ($((Get-Item $pdfPath).Length) bytes)" -ForegroundColor Green
 Write-Host "  DOCX: $docxPath  ($((Get-Item $docxPath).Length) bytes)" -ForegroundColor Green
 

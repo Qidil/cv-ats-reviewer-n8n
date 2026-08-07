@@ -3,7 +3,7 @@
 Aplikasi web lokal untuk menganalisis CV terhadap deskripsi pekerjaan target, memberi skor ATS, dan menulis ulang CV (hanya dengan persetujuan Anda) menggunakan model AI gratis.
 
 ![Node.js](https://img.shields.io/badge/Node-22.5-339933?logo=node.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
 ![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
@@ -125,9 +125,9 @@ Lalu isi variabel berikut di file `.env`:
 | `N8N_URL` | Ya | Alamat instance n8n (lihat catatan lokal/cloud di bawah) | `http://localhost:5678` |
 | `N8N_ANALYZE_PATH` | Ya | Path webhook analyze n8n | `cv-analyze` |
 | `N8N_REWRITE_PATH` | Ya | Path webhook rewrite n8n | `cv-rewrite` |
-| `N8N_TIMEOUT_MS` | Ya | Batas waktu tunggu webhook (ms); model free lambat | `300000` |
+| `N8N_TIMEOUT_MS` | Ya | Batas waktu tunggu webhook (ms); menutupi worst-case rantai rewrite (5+5 model × 60s) | `600000` |
 | `DB_PATH` | Ya | Lokasi file database SQLite | `./data/app.db` |
-| `OPENROUTER_FREE_MODELS` | Ya* | Daftar model gratis (urut = prioritas failover) | `nvidia/nemotron-3-ultra-550b-a55b:free,...` |
+| `OPENROUTER_FREE_MODELS` | Ya* | Daftar model gratis (urut = prioritas failover) | `nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,nvidia/nemotron-3-nano-30b-a3b:free,google/gemma-4-31b-it:free,openai/gpt-oss-20b:free` |
 
 \* `OPENROUTER_FREE_MODELS` hanya referensi — model yang benar-benar dipakai
 dikonfigurasi di node HTTP n8n (lihat section "Catatan Model AI Gratis").
