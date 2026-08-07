@@ -41,7 +41,7 @@ Solusinya adalah alat single-user yang berjalan sepenuhnya di mesin Anda. Unggah
 Tantangan terbesar dalam pembuatan aplikasi ini:
 
 1. **AI orchestration tanpa Code node** — aturan proyek melarang JS di n8n ("TypeScript everywhere"), sehingga semua parsing & logika deterministik dipindah ke backend; n8n hanya berisi webhook + HTTP Request (failover).
-2. **Rate limit model gratis OpenRouter** — model `:free` sering 429; diselesaikan dengan rantai failover 3 model (`nemotron-3-ultra → gpt-oss-120b → nemotron-3-nano`) dengan `onError: continueErrorOutput`.
+2. **Rate limit model gratis OpenRouter** — model `:free` sering 429; diselesaikan dengan rantai failover 5 model (`nemotron-3-ultra → nemotron-3-super → nemotron-3-nano → gemma-4-31b-it → gpt-oss-20b`) dengan `onError: continueErrorOutput`.
 3. **Output model tidak selalu JSON valid** — teks ekstra kadang menempel di sekitar JSON; backend memakai regex fallback untuk mengekstrak JSON yang benar.
 4. **`node:sqlite` tidak membuat folder otomatis** — `openAppDb` sempat gagal saat folder `data/` belum ada; diperbaiki dengan `mkdirSync` sebelum membuka koneksi.
 5. **Bahasa output rewrite** — CV rewrite harus mengikuti bahasa deskripsi pekerjaan (bukan selalu English); diatur via instruksi prompt dan dikonfirmasi ulang pada test.
@@ -79,9 +79,9 @@ https://openrouter.ai/models?max_price=0
 
 Nama model ditulis langsung di node HTTP Request pada workflow n8n:
 
-- `n8n/workflows/cv-ats-analyze.json` → node `Analyze - Model 1/2/3`
-- `n8n/workflows/cv-ats-rewrite.json` → node `Rewrite - Model 1/2/3` dan
-  `Post-Check Model 1/2/3`
+- `n8n/workflows/cv-ats-analyze.json` → node `Analyze - Model 1/2/3/4/5`
+- `n8n/workflows/cv-ats-rewrite.json` → node `Rewrite - Model 1/2/3/4/5` dan
+  `Post-Check Model 1/2/3/4/5`
 
 Langkah:
 

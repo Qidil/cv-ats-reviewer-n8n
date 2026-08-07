@@ -1,4 +1,4 @@
-import { workflow, node, trigger, expr } from '@n8n/workflow-sdk'
+import { workflow, node, trigger, expr, ifElse } from '@n8n/workflow-sdk'
 
 const webhook = trigger({
   type: 'n8n-nodes-base.webhook',
@@ -60,7 +60,7 @@ const analyzeM1 = node({
         model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
         messages: [
           { role: 'system', content: analyzeSystemPrompt },
-          { role: 'user', content: expr('CV:\n{{ $json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $json.targetJobDescription }}') },
+          { role: 'user', content: expr('CV:\n{{ $("Normalize Input").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}') },
         ],
         temperature: 0.2,
         max_tokens: 2048,
@@ -87,10 +87,10 @@ const analyzeM2 = node({
       contentType: 'json',
       specifyBody: 'json',
       jsonBody: {
-        model: 'openai/gpt-oss-120b:free',
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
         messages: [
           { role: 'system', content: analyzeSystemPrompt },
-          { role: 'user', content: expr('CV:\n{{ $json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $json.targetJobDescription }}') },
+          { role: 'user', content: expr('CV:\n{{ $("Normalize Input").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}') },
         ],
         temperature: 0.2,
         max_tokens: 2048,
@@ -120,7 +120,7 @@ const analyzeM3 = node({
         model: 'nvidia/nemotron-3-nano-30b-a3b:free',
         messages: [
           { role: 'system', content: analyzeSystemPrompt },
-          { role: 'user', content: expr('CV:\n{{ $json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $json.targetJobDescription }}') },
+          { role: 'user', content: expr('CV:\n{{ $("Normalize Input").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}') },
         ],
         temperature: 0.2,
         max_tokens: 2048,
@@ -129,6 +129,142 @@ const analyzeM3 = node({
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
+  },
+})
+
+const analyzeM4 = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.5,
+  config: {
+    name: 'Analyze - Model 4',
+    position: [540, 840],
+    parameters: {
+      method: 'POST',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      authentication: 'predefinedCredentialType',
+      nodeCredentialType: 'openRouterApi',
+      sendBody: true,
+      contentType: 'json',
+      specifyBody: 'json',
+      jsonBody: {
+        model: 'google/gemma-4-31b-it:free',
+        messages: [
+          { role: 'system', content: analyzeSystemPrompt },
+          { role: 'user', content: expr('CV:\n{{ $("Normalize Input").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}') },
+        ],
+        temperature: 0.2,
+        max_tokens: 2048,
+      },
+      options: { timeout: 120000 },
+    },
+    onError: 'continueErrorOutput',
+    credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
+  },
+})
+
+const analyzeM5 = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.5,
+  config: {
+    name: 'Analyze - Model 5',
+    position: [540, 1020],
+    parameters: {
+      method: 'POST',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      authentication: 'predefinedCredentialType',
+      nodeCredentialType: 'openRouterApi',
+      sendBody: true,
+      contentType: 'json',
+      specifyBody: 'json',
+      jsonBody: {
+        model: 'openai/gpt-oss-20b:free',
+        messages: [
+          { role: 'system', content: analyzeSystemPrompt },
+          { role: 'user', content: expr('CV:\n{{ $("Normalize Input").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}') },
+        ],
+        temperature: 0.2,
+        max_tokens: 2048,
+      },
+      options: { timeout: 120000 },
+    },
+    onError: 'continueErrorOutput',
+    credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
+  },
+})
+
+const analyzeValidM1 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Analyze Valid Model 1',
+    position: [880, 300],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const analyzeValidM2 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Analyze Valid Model 2',
+    position: [880, 480],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const analyzeValidM3 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Analyze Valid Model 3',
+    position: [880, 660],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const analyzeValidM4 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Analyze Valid Model 4',
+    position: [880, 840],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
   },
 })
 
@@ -154,6 +290,34 @@ export default workflow('cv-ats-analyze', 'CV ATS Analyze')
   .to(normalizeInput)
   .to(
     analyzeM1
-      .to(formatOutput)
-      .onError(analyzeM2.to(formatOutput).onError(analyzeM3.to(formatOutput))),
+      .to(
+        analyzeValidM1
+          .onTrue(formatOutput)
+          .onFalse(
+            analyzeM2
+              .to(
+                analyzeValidM2
+                  .onTrue(formatOutput)
+                  .onFalse(
+                    analyzeM3
+                      .to(
+                        analyzeValidM3
+                          .onTrue(formatOutput)
+                          .onFalse(
+                            analyzeM4
+                              .to(
+                                analyzeValidM4
+                                  .onTrue(formatOutput)
+                                  .onFalse(analyzeM5.to(formatOutput)),
+                              )
+                              .onError(analyzeM5),
+                          ),
+                      )
+                      .onError(analyzeM4),
+                  ),
+              )
+              .onError(analyzeM3),
+          ),
+      )
+      .onError(analyzeM2),
   )

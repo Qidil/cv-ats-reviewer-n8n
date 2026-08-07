@@ -6,7 +6,10 @@
       "name": "CV Rewrite Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "parameters": {
         "httpMethod": "POST",
         "path": "cv-rewrite",
@@ -21,7 +24,10 @@
       "name": "Normalize Input",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [224, 0],
+      "position": [
+        224,
+        0
+      ],
       "parameters": {
         "mode": "manual",
         "includeOtherFields": true,
@@ -60,7 +66,10 @@
       "name": "Rewrite - Model 1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [540, 300],
+      "position": [
+        540,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -78,7 +87,7 @@
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}"
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
             }
           ],
           "temperature": 0.2,
@@ -101,7 +110,10 @@
       "name": "Capture Rewrite",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1120, 0],
+      "position": [
+        1120,
+        0
+      ],
       "parameters": {
         "mode": "manual",
         "includeOtherFields": true,
@@ -146,7 +158,10 @@
       "name": "Rewrite - Model 2",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [540, 480],
+      "position": [
+        540,
+        480
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -156,7 +171,7 @@
         "contentType": "json",
         "specifyBody": "json",
         "jsonBody": {
-          "model": "openai/gpt-oss-120b:free",
+          "model": "nvidia/nemotron-3-super-120b-a12b:free",
           "messages": [
             {
               "role": "system",
@@ -164,7 +179,7 @@
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}"
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
             }
           ],
           "temperature": 0.2,
@@ -187,7 +202,10 @@
       "name": "Rewrite - Model 3",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [540, 660],
+      "position": [
+        540,
+        660
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -205,7 +223,95 @@
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}"
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 4096
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "47272cbc-6674-4d97-8915-41d0e8c3017a",
+      "name": "Rewrite - Model 4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        540,
+        840
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "google/gemma-4-31b-it:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 4096
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "dc8de1ac-19e7-4bbb-9fe0-df751c50a68f",
+      "name": "Rewrite - Model 5",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        540,
+        1020
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "openai/gpt-oss-20b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
             }
           ],
           "temperature": 0.2,
@@ -228,7 +334,10 @@
       "name": "Post-Check Model 1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [1120, 300],
+      "position": [
+        1120,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -238,7 +347,7 @@
         "contentType": "json",
         "specifyBody": "json",
         "jsonBody": {
-          "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "model": "google/gemma-4-31b-it:free",
           "messages": [
             {
               "role": "system",
@@ -246,11 +355,14 @@
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}"
+              "content": "=CV asli:\n{{ $(\"Capture Rewrite\").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $(\"Capture Rewrite\").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $(\"Capture Rewrite\").item.json.targetJobDescription }}"
             }
           ],
           "temperature": 0.2,
-          "max_tokens": 1024
+          "max_tokens": 4096,
+          "response_format": {
+            "type": "json_object"
+          }
         },
         "options": {
           "timeout": 120000
@@ -269,7 +381,10 @@
       "name": "Format Output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2016, 0],
+      "position": [
+        2016,
+        0
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -307,7 +422,10 @@
       "name": "Post-Check Model 2",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [1120, 480],
+      "position": [
+        1120,
+        480
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -317,7 +435,7 @@
         "contentType": "json",
         "specifyBody": "json",
         "jsonBody": {
-          "model": "openai/gpt-oss-120b:free",
+          "model": "openai/gpt-oss-20b:free",
           "messages": [
             {
               "role": "system",
@@ -325,11 +443,14 @@
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}"
+              "content": "=CV asli:\n{{ $(\"Capture Rewrite\").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $(\"Capture Rewrite\").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $(\"Capture Rewrite\").item.json.targetJobDescription }}"
             }
           ],
           "temperature": 0.2,
-          "max_tokens": 1024
+          "max_tokens": 4096,
+          "response_format": {
+            "type": "json_object"
+          }
         },
         "options": {
           "timeout": 120000
@@ -348,7 +469,57 @@
       "name": "Post-Check Model 3",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [1120, 660],
+      "position": [
+        1120,
+        660
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "nvidia/nemotron-3-super-120b-a12b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $(\"Capture Rewrite\").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $(\"Capture Rewrite\").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $(\"Capture Rewrite\").item.json.targetJobDescription }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 4096,
+          "reasoning": {
+            "enabled": false
+          }
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "b78bcb0d-6fdd-4dd2-bcc6-0e2dfbf295e0",
+      "name": "Post-Check Model 4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        840
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -366,11 +537,14 @@
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}"
+              "content": "=CV asli:\n{{ $(\"Capture Rewrite\").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $(\"Capture Rewrite\").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $(\"Capture Rewrite\").item.json.targetJobDescription }}"
             }
           ],
           "temperature": 0.2,
-          "max_tokens": 1024
+          "max_tokens": 4096,
+          "reasoning": {
+            "enabled": false
+          }
         },
         "options": {
           "timeout": 120000
@@ -383,81 +557,764 @@
           "name": "OpenRouter account"
         }
       }
+    },
+    {
+      "id": "af92363f-7f4e-465f-992c-22bae26117a3",
+      "name": "Post-Check Model 5",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        1020
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+            },
+            {
+              "role": "user",
+              "content": "=CV asli:\n{{ $(\"Capture Rewrite\").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $(\"Capture Rewrite\").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $(\"Capture Rewrite\").item.json.targetJobDescription }}"
+            }
+          ],
+          "temperature": 0.2,
+          "max_tokens": 4096,
+          "reasoning": {
+            "enabled": false
+          }
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openRouterApi": {
+          "id": "DNXYjrGmURVEVg05",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "84e725b4-4fb2-4bda-bd3b-0193dd5b5b18",
+      "name": "Rewrite Valid Model 1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.error }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
+    },
+    {
+      "id": "a6fc9b5b-56f3-4d63-9e5a-6760f19ced75",
+      "name": "Rewrite Valid Model 2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        480
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.error }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
+    },
+    {
+      "id": "5c6400d1-a017-4749-a439-b3fbfd446cfd",
+      "name": "Rewrite Valid Model 3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        660
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.error }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
+    },
+    {
+      "id": "de3cb82a-14f9-4af3-88c2-d59538925d5e",
+      "name": "Rewrite Valid Model 4",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        840
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.error }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
+    },
+    {
+      "id": "a5eb160c-ca74-45cd-8bf1-dbf453953dc3",
+      "name": "Post-Check Valid Model 1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1480,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.error }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
+    },
+    {
+      "id": "64e14ccb-0afa-4cc8-aa70-9cd13a44b479",
+      "name": "Post-Check Valid Model 2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1480,
+        480
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.error }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
+    },
+    {
+      "id": "a410f59c-de21-4666-83c5-6ff8d0b55e9f",
+      "name": "Post-Check Valid Model 3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1480,
+        660
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.error }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
+    },
+    {
+      "id": "bf8f3142-6e04-4ae4-9d0d-2e11da18ba71",
+      "name": "Post-Check Valid Model 4",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1480,
+        840
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.error }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            },
+            {
+              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
     }
   ],
   "connections": {
     "CV Rewrite Webhook": {
       "main": [
         [
-          { "node": "Normalize Input", "type": "main", "index": 0 }
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Normalize Input": {
       "main": [
         [
-          { "node": "Rewrite - Model 1", "type": "main", "index": 0 }
+          {
+            "node": "Rewrite - Model 1",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Rewrite - Model 1": {
       "main": [
         [
-          { "node": "Capture Rewrite", "type": "main", "index": 0 }
+          {
+            "node": "Rewrite Valid Model 1",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Rewrite - Model 2", "type": "main", "index": 0 }
+          {
+            "node": "Rewrite - Model 2",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Capture Rewrite": {
       "main": [
         [
-          { "node": "Post-Check Model 1", "type": "main", "index": 0 }
+          {
+            "node": "Post-Check Model 1",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Rewrite - Model 2": {
       "main": [
         [
-          { "node": "Capture Rewrite", "type": "main", "index": 0 }
+          {
+            "node": "Rewrite Valid Model 2",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Rewrite - Model 3", "type": "main", "index": 0 }
+          {
+            "node": "Rewrite - Model 3",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Rewrite - Model 3": {
       "main": [
         [
-          { "node": "Capture Rewrite", "type": "main", "index": 0 }
+          {
+            "node": "Rewrite Valid Model 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rewrite - Model 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite - Model 4": {
+      "main": [
+        [
+          {
+            "node": "Rewrite Valid Model 4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rewrite - Model 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite - Model 5": {
+      "main": [
+        [
+          {
+            "node": "Capture Rewrite",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Post-Check Model 1": {
       "main": [
         [
-          { "node": "Format Output", "type": "main", "index": 0 }
+          {
+            "node": "Post-Check Valid Model 1",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Post-Check Model 2", "type": "main", "index": 0 }
+          {
+            "node": "Post-Check Model 2",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Post-Check Model 2": {
       "main": [
         [
-          { "node": "Format Output", "type": "main", "index": 0 }
+          {
+            "node": "Post-Check Valid Model 2",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Post-Check Model 3", "type": "main", "index": 0 }
+          {
+            "node": "Post-Check Model 3",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Post-Check Model 3": {
       "main": [
         [
-          { "node": "Format Output", "type": "main", "index": 0 }
+          {
+            "node": "Post-Check Valid Model 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post-Check Model 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Check Model 4": {
+      "main": [
+        [
+          {
+            "node": "Post-Check Valid Model 4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post-Check Model 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Check Model 5": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Valid Model 1": {
+      "main": [
+        [
+          {
+            "node": "Capture Rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rewrite - Model 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Check Valid Model 1": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post-Check Model 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Valid Model 2": {
+      "main": [
+        [
+          {
+            "node": "Capture Rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rewrite - Model 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Check Valid Model 2": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post-Check Model 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Valid Model 3": {
+      "main": [
+        [
+          {
+            "node": "Capture Rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rewrite - Model 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Check Valid Model 3": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post-Check Model 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Valid Model 4": {
+      "main": [
+        [
+          {
+            "node": "Capture Rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rewrite - Model 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Check Valid Model 4": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post-Check Model 5",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }

@@ -1,4 +1,4 @@
-import { workflow, node, trigger, expr } from '@n8n/workflow-sdk'
+import { workflow, node, trigger, expr, ifElse } from '@n8n/workflow-sdk'
 
 const webhook = trigger({
   type: 'n8n-nodes-base.webhook',
@@ -63,7 +63,7 @@ const rewriteM1 = node({
         model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}') },
+          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -90,10 +90,10 @@ const rewriteM2 = node({
       contentType: 'json',
       specifyBody: 'json',
       jsonBody: {
-        model: 'openai/gpt-oss-120b:free',
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}') },
+          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -123,7 +123,67 @@ const rewriteM3 = node({
         model: 'nvidia/nemotron-3-nano-30b-a3b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($json.approvedSuggestions) }}') },
+          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
+        ],
+        temperature: 0.2,
+        max_tokens: 4096,
+      },
+      options: { timeout: 120000 },
+    },
+    onError: 'continueErrorOutput',
+    credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
+  },
+})
+
+const rewriteM4 = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.5,
+  config: {
+    name: 'Rewrite - Model 4',
+    position: [540, 840],
+    parameters: {
+      method: 'POST',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      authentication: 'predefinedCredentialType',
+      nodeCredentialType: 'openRouterApi',
+      sendBody: true,
+      contentType: 'json',
+      specifyBody: 'json',
+      jsonBody: {
+        model: 'google/gemma-4-31b-it:free',
+        messages: [
+          { role: 'system', content: rewriteSystemPrompt },
+          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
+        ],
+        temperature: 0.2,
+        max_tokens: 4096,
+      },
+      options: { timeout: 120000 },
+    },
+    onError: 'continueErrorOutput',
+    credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
+  },
+})
+
+const rewriteM5 = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.5,
+  config: {
+    name: 'Rewrite - Model 5',
+    position: [540, 1020],
+    parameters: {
+      method: 'POST',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      authentication: 'predefinedCredentialType',
+      nodeCredentialType: 'openRouterApi',
+      sendBody: true,
+      contentType: 'json',
+      specifyBody: 'json',
+      jsonBody: {
+        model: 'openai/gpt-oss-20b:free',
+        messages: [
+          { role: 'system', content: rewriteSystemPrompt },
+          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -179,13 +239,14 @@ const postM1 = node({
       contentType: 'json',
       specifyBody: 'json',
       jsonBody: {
-        model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+        model: 'google/gemma-4-31b-it:free',
         messages: [
           { role: 'system', content: postCheckSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}') },
+          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
         ],
         temperature: 0.2,
-        max_tokens: 1024,
+        max_tokens: 4096,
+        response_format: { type: 'json_object' },
       },
       options: { timeout: 120000 },
     },
@@ -209,13 +270,14 @@ const postM2 = node({
       contentType: 'json',
       specifyBody: 'json',
       jsonBody: {
-        model: 'openai/gpt-oss-120b:free',
+        model: 'openai/gpt-oss-20b:free',
         messages: [
           { role: 'system', content: postCheckSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}') },
+          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
         ],
         temperature: 0.2,
-        max_tokens: 1024,
+        max_tokens: 4096,
+        response_format: { type: 'json_object' },
       },
       options: { timeout: 120000 },
     },
@@ -239,18 +301,233 @@ const postM3 = node({
       contentType: 'json',
       specifyBody: 'json',
       jsonBody: {
-        model: 'nvidia/nemotron-3-nano-30b-a3b:free',
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
         messages: [
           { role: 'system', content: postCheckSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $json.raw }}\n\nDeskripsi pekerjaan:\n{{ $json.targetJobDescription }}') },
+          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
         ],
         temperature: 0.2,
-        max_tokens: 1024,
+        max_tokens: 4096,
+        reasoning: { enabled: false },
       },
       options: { timeout: 120000 },
     },
     onError: 'continueErrorOutput',
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
+  },
+})
+
+const postM4 = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.5,
+  config: {
+    name: 'Post-Check Model 4',
+    position: [1120, 840],
+    parameters: {
+      method: 'POST',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      authentication: 'predefinedCredentialType',
+      nodeCredentialType: 'openRouterApi',
+      sendBody: true,
+      contentType: 'json',
+      specifyBody: 'json',
+      jsonBody: {
+        model: 'nvidia/nemotron-3-nano-30b-a3b:free',
+        messages: [
+          { role: 'system', content: postCheckSystemPrompt },
+          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
+        ],
+        temperature: 0.2,
+        max_tokens: 4096,
+        reasoning: { enabled: false },
+      },
+      options: { timeout: 120000 },
+    },
+    onError: 'continueErrorOutput',
+    credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
+  },
+})
+
+const postM5 = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.5,
+  config: {
+    name: 'Post-Check Model 5',
+    position: [1120, 1020],
+    parameters: {
+      method: 'POST',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      authentication: 'predefinedCredentialType',
+      nodeCredentialType: 'openRouterApi',
+      sendBody: true,
+      contentType: 'json',
+      specifyBody: 'json',
+      jsonBody: {
+        model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+        messages: [
+          { role: 'system', content: postCheckSystemPrompt },
+          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
+        ],
+        temperature: 0.2,
+        max_tokens: 4096,
+        reasoning: { enabled: false },
+      },
+      options: { timeout: 120000 },
+    },
+    onError: 'continueErrorOutput',
+    credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
+  },
+})
+
+const rewriteValidM1 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Rewrite Valid Model 1',
+    position: [880, 300],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const rewriteValidM2 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Rewrite Valid Model 2',
+    position: [880, 480],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const rewriteValidM3 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Rewrite Valid Model 3',
+    position: [880, 660],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const rewriteValidM4 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Rewrite Valid Model 4',
+    position: [880, 840],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const postValidM1 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Post-Check Valid Model 1',
+    position: [1480, 300],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const postValidM2 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Post-Check Valid Model 2',
+    position: [1480, 480],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const postValidM3 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Post-Check Valid Model 3',
+    position: [1480, 660],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
+const postValidM4 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Post-Check Valid Model 4',
+    position: [1480, 840],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
   },
 })
 
@@ -278,12 +555,68 @@ export default workflow('cv-ats-rewrite', 'CV ATS Rewrite')
   .to(normalizeInput)
   .to(
     rewriteM1
-      .to(captureRewrite)
-      .onError(rewriteM2.to(captureRewrite).onError(rewriteM3.to(captureRewrite))),
+      .to(
+        rewriteValidM1
+          .onTrue(captureRewrite)
+          .onFalse(
+            rewriteM2
+              .to(
+                rewriteValidM2
+                  .onTrue(captureRewrite)
+                  .onFalse(
+                    rewriteM3
+                      .to(
+                        rewriteValidM3
+                          .onTrue(captureRewrite)
+                          .onFalse(
+                            rewriteM4
+                              .to(
+                                rewriteValidM4
+                                  .onTrue(captureRewrite)
+                                  .onFalse(rewriteM5.to(captureRewrite)),
+                              )
+                              .onError(rewriteM5),
+                          ),
+                      )
+                      .onError(rewriteM4),
+                  ),
+              )
+              .onError(rewriteM3),
+          ),
+      )
+      .onError(rewriteM2),
   )
   .add(captureRewrite)
   .to(
     postM1
-      .to(formatOutput)
-      .onError(postM2.to(formatOutput).onError(postM3.to(formatOutput))),
+      .to(
+        postValidM1
+          .onTrue(formatOutput)
+          .onFalse(
+            postM2
+              .to(
+                postValidM2
+                  .onTrue(formatOutput)
+                  .onFalse(
+                    postM3
+                      .to(
+                        postValidM3
+                          .onTrue(formatOutput)
+                          .onFalse(
+                            postM4
+                              .to(
+                                postValidM4
+                                  .onTrue(formatOutput)
+                                  .onFalse(postM5.to(formatOutput)),
+                              )
+                              .onError(postM5),
+                          ),
+                      )
+                      .onError(postM4),
+                  ),
+              )
+              .onError(postM3),
+          ),
+      )
+      .onError(postM2),
   )
