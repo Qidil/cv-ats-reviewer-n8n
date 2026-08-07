@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowRight, FileUp, History, UploadCloud } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { api, ApiRequestError } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 const MAX_CV_BYTES = 5 * 1024 * 1024
 
@@ -21,9 +22,37 @@ export default function UploadPage() {
   const [jobDescription, setJobDescription] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDragActive, setIsDragActive] = useState(false)
+  const dragDepth = useRef(0)
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null
+    setError(null)
+    setCvFile(file)
+  }
+
+  function handleDragEnter() {
+    dragDepth.current += 1
+    setIsDragActive(true)
+  }
+
+  function handleDragLeave() {
+    dragDepth.current -= 1
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0
+      setIsDragActive(false)
+    }
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault()
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault()
+    dragDepth.current = 0
+    setIsDragActive(false)
+    const file = event.dataTransfer.files[0] ?? null
     setError(null)
     setCvFile(file)
   }
@@ -98,12 +127,30 @@ export default function UploadPage() {
                 <div className="mt-3 grid gap-3">
                   <label
                     htmlFor="cv-file"
-                    className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted px-8 py-12 text-center transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    onDragEnter={handleDragEnter}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={cn(
+                      'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-8 py-12 text-center transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                      isDragActive
+                        ? 'border-primary bg-primary/10 ring-3 ring-primary/20'
+                        : 'border-border bg-muted hover:bg-muted/70',
+                    )}
+                    aria-label="Area unggah CV: klik atau seret file PDF ke sini"
                   >
-                    <UploadCloud className="size-8 text-muted-foreground" aria-hidden="true" />
-                    {cvFile === null ? (
+                    <UploadCloud
+                      className={cn(
+                        'size-8',
+                        isDragActive ? 'text-primary' : 'text-muted-foreground',
+                      )}
+                      aria-hidden="true"
+                    />
+                    {isDragActive ? (
+                      <span className="text-sm font-medium text-primary">Lepaskan di sini</span>
+                    ) : cvFile === null ? (
                       <span className="text-sm text-muted-foreground">
-                        Klik untuk memilih file PDF (maks 5 MB)
+                        Klik atau seret file PDF ke sini (maks 5 MB)
                       </span>
                     ) : (
                       <span className="text-sm font-medium text-foreground">{cvFile.name}</span>

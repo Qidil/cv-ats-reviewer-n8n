@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import UploadPage from './upload'
@@ -49,5 +49,34 @@ describe('UploadPage', () => {
     await user.click(screen.getByRole('button', { name: /Analisis CV/i }))
 
     expect(screen.getByRole('button', { name: /Analisis CV/i })).not.toBeDisabled()
+  })
+
+  it('highlights the drop zone while dragging a file over it', async () => {
+    render(
+      <MemoryRouter>
+        <UploadPage />
+      </MemoryRouter>,
+    )
+
+    const zone = screen.getByLabelText('Area unggah CV: klik atau seret file PDF ke sini')
+
+    fireEvent.dragEnter(zone)
+    expect(screen.getByText('Lepaskan di sini')).toBeInTheDocument()
+
+    fireEvent.dragLeave(zone)
+    expect(screen.queryByText('Lepaskan di sini')).not.toBeInTheDocument()
+  })
+
+  it('accepts a dropped PDF file', async () => {
+    render(
+      <MemoryRouter>
+        <UploadPage />
+      </MemoryRouter>,
+    )
+
+    const zone = screen.getByLabelText('Area unggah CV: klik atau seret file PDF ke sini')
+    fireEvent.drop(zone, { dataTransfer: { files: [file] } })
+
+    expect(screen.getByText(file.name)).toBeInTheDocument()
   })
 })
