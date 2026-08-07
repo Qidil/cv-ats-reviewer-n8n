@@ -216,6 +216,13 @@ const captureRewrite = node({
   },
 })
 
+// tradeoff: Post-check chain intentionally reorders the failover models instead
+// of following OPENROUTER_FREE_MODELS: gemma/gpt-oss run first because they
+// support response_format: json_object (reliable JSON post-check), the nemotron
+// models follow with reasoning.enabled: false. Ceiling: two model orders to
+// maintain. Upgrade trigger: keep this order in sync with OPENROUTER_FREE_MODELS
+// when models are added/retired, or switch to structured-output-only models.
+
 const postCheckSystemPrompt =
   'Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. ' +
   'Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) ' +
