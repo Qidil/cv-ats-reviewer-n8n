@@ -2,6 +2,8 @@
 
 Aplikasi web lokal untuk menganalisis CV terhadap deskripsi pekerjaan target, memberi skor ATS, dan menulis ulang CV (hanya dengan persetujuan Anda) menggunakan model AI gratis.
 
+> ⚠️ **Peringatan penting:** Aplikasi ini adalah **mesin tiruan** — penilaian dan saran dihasilkan oleh **AI** untuk mengecek kualitas CV Anda terhadap deskripsi pekerjaan yang diberikan. Hasilnya **belum pernah diuji terhadap mesin ATS asli** yang dipakai perusahaan perekrut, jadi gunakan sebagai panduan perbaikan, bukan jaminan lolos seleksi.
+
 ![Node.js](https://img.shields.io/badge/Node-22.5-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
@@ -26,13 +28,13 @@ Solusinya adalah alat single-user yang berjalan sepenuhnya di mesin Anda. Unggah
 
 - **Upload CV (PDF)** — unggah CV berbasis teks; backend mengekstrak teksnya untuk dianalisis.
 - **Target Job Description** — wajib diisi; hasil ATS selalu mengukur kecocokan CV dengan pekerjaan target itu.
-- **ATS Analysis** — skor keseluruhan, cek per-aturan, kelemahan, dan saran terstruktur JSON.
+- **ATS Analysis** — skor keseluruhan berbasis **rubrik** (keyword match, skills coverage, section completeness, formatting, quantified achievements, readability) yang bobotnya selaras dengan cara kerja mesin ATS; cek per-aturan, kelemahan, dan saran terstruktur JSON.
 - **Approval (HITL)** — Anda memilih saran mana yang disetujui sebelum proses rewrite berjalan.
-- **CV Rewrite** — tulis ulang CV sesuai saran yang disetujui, tanpa mengubah fakta asli.
-- **Post-Check** — satu panggilan AI ekstra untuk skor CV hasil rewrite + peringatan informasi yang hilang.
+- **CV Rewrite** — tulis ulang CV sesuai saran yang disetujui tanpa mengubah fakta asli, dengan **pilihan format** (chronological, functional, combination) yang memakai heading standar ATS.
+- **Post-Check** — satu panggilan AI ekstra untuk skor CV hasil rewrite + peringatan informasi yang hilang/berubah + cek kepatuhan format ATS.
 - **Export PDF & DOCX** — unduh hasil rewrite dalam dua format dari konten yang sama.
 - **History** — semua CV, analisis, persetujuan, dan rewrite tersimpan lokal di SQLite.
-- **Model Failover** — jika satu model gratis rate-limited (429), otomatis pindah ke model gratis berikutnya.
+- **Model Failover + Continue** — jika satu model gratis gagal (429, kosong), otomatis pindah ke model berikutnya; jika terpotong batas token (`finish_reason: "length"`), model berikutnya **melanjutkan output parsial** model sebelumnya alih-alih memulai dari nol.
 
 ---
 
@@ -45,6 +47,8 @@ Tantangan terbesar dalam pembuatan aplikasi ini:
 3. **Output model tidak selalu JSON valid** — teks ekstra kadang menempel di sekitar JSON; backend memakai regex fallback untuk mengekstrak JSON yang benar.
 4. **`node:sqlite` tidak membuat folder otomatis** — `openAppDb` sempat gagal saat folder `data/` belum ada; diperbaiki dengan `mkdirSync` sebelum membuka koneksi.
 5. **Bahasa output rewrite** — CV rewrite harus mengikuti bahasa deskripsi pekerjaan (bukan selalu English); diatur via instruksi prompt dan dikonfirmasi ulang pada test.
+6. **Output terpotong batas token (`finish_reason: "length")`** — model free kerap berhenti di tengah output sehingga JSON tidak valid. Dipecahkan dengan **FAILOVER-CONTINUE**: saat model kena token limit, model berikutnya menerima output parsial + konteks dan melanjutkan melengkapinya (bukan memulai dari nol) — cukup ekspresi ternary di user message, tanpa Code node.
+7. **Skor konsisten dengan rubrik ATS** — skor model harus selaras dengan bobot rubrik (keyword/skills/sections/formatting/quantified/readability). Rubrik di-prompt ke model dan dikonfirmasi pada test agar hasil tidak "sembarang" atau generos.
 
 ---
 
