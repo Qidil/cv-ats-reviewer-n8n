@@ -13,7 +13,12 @@ build/
 data/
 backend/data/*.db
 backend/data/*.db-journal
+backend/data/*.db-wal
+backend/data/*.db-shm
 backend/data/uploads/
+
+# Test coverage
+coverage/
 
 # Project spec documents & private test fixtures (local-only, not pushed)
 project-context/

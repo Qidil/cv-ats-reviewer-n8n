@@ -120,8 +120,56 @@ describe('POST /api/approvals/:approvalId/rewrite', () => {
         targetJobDescription: 'Backend Engineer at TechCo',
         originalCv: expect.any(String),
         approvedSuggestions: expect.arrayContaining([expect.objectContaining({ id: 'sug-1' })]),
+        format: 'chronological',
+        analyzeContext: expect.stringContaining('Skor keseluruhan analisis: 78'),
       }),
     )
+  })
+
+  it('passes the requested format through to the proxy', async () => {
+    vi.mocked(mockRewriteCv).mockResolvedValue({
+      model: 'nvidia/rewrite:free',
+      raw: '# Budi',
+      postCheckModel: null,
+      postCheckRaw: null,
+    })
+    const approvalId = await createApproval()
+    await request(createApp(db))
+      .post(`/api/approvals/${approvalId}/rewrite`)
+      .send({ format: 'combination' })
+    expect(vi.mocked(mockRewriteCv)).toHaveBeenCalledWith(
+      expect.objectContaining({ format: 'combination' }),
+    )
+  })
+
+  it('falls back to chronological for an unknown format', async () => {
+    vi.mocked(mockRewriteCv).mockResolvedValue({
+      model: 'nvidia/rewrite:free',
+      raw: '# Budi',
+      postCheckModel: null,
+      postCheckRaw: null,
+    })
+    const approvalId = await createApproval()
+    await request(createApp(db))
+      .post(`/api/approvals/${approvalId}/rewrite`)
+      .send({ format: 'bogus' })
+    expect(vi.mocked(mockRewriteCv)).toHaveBeenCalledWith(
+      expect.objectContaining({ format: 'chronological' }),
+    )
+  })
+
+  it('builds analyzeContext from the review checks and weaknesses', async () => {
+    vi.mocked(mockRewriteCv).mockResolvedValue({
+      model: 'nvidia/rewrite:free',
+      raw: '# Budi',
+      postCheckModel: null,
+      postCheckRaw: null,
+    })
+    const approvalId = await createApproval()
+    await request(createApp(db)).post(`/api/approvals/${approvalId}/rewrite`)
+    const payload = vi.mocked(mockRewriteCv).mock.calls.at(-1)?.[0]
+    expect(payload?.analyzeContext).toContain('Keyword match')
+    expect(payload?.analyzeContext).toContain('Skor keseluruhan analisis')
   })
 
   it('keeps the rewrite when the post-check output is missing (NFR-08)', async () => {

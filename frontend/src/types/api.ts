@@ -63,3 +63,4 @@ export interface ApiError {
 }
 
 export type ExportFormat = 'pdf' | 'docx'
+export type RewriteFormat = 'chronological' | 'combination' | 'functional'

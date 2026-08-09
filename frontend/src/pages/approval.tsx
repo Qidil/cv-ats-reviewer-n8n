@@ -5,10 +5,36 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useReview } from '@/hooks/use-review'
 import { api, ApiRequestError } from '@/lib/api'
+import type { RewriteFormat } from '@/types/api'
 import { parseRouteId } from '@/lib/utils'
+
+const FORMAT_OPTIONS: { value: RewriteFormat; label: string; description: string }[] = [
+  {
+    value: 'chronological',
+    label: 'Kronologis',
+    description: 'Pengalaman kerja urut terbalik, paling aman untuk parser ATS.',
+  },
+  {
+    value: 'combination',
+    label: 'Kombinasi',
+    description: 'Sorot keahlian di atas lalu pengalaman secara kronologis.',
+  },
+  {
+    value: 'functional',
+    label: 'Fungsional',
+    description: 'Kelompokkan berdasarkan keahlian/kompetensi, minimalkan garis waktu.',
+  },
+]
 
 export default function ApprovalPage() {
   const { reviewId: rawReviewId } = useParams()
@@ -17,6 +43,7 @@ export default function ApprovalPage() {
   const { review, isLoading, error } = useReview(reviewId ?? 0)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [format, setFormat] = useState<RewriteFormat>('chronological')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -40,7 +67,7 @@ export default function ApprovalPage() {
     setIsSubmitting(true)
     try {
       const { id: approvalId } = await api.approveSuggestions(reviewId, [...selectedIds])
-      const rewrite = await api.triggerRewrite(approvalId)
+      const rewrite = await api.triggerRewrite(approvalId, format)
       navigate(`/result/${rewrite.id}`)
     } catch (err) {
       setSubmitError(err instanceof ApiRequestError ? err.message : 'Terjadi kesalahan. Silakan coba lagi.')
@@ -177,28 +204,56 @@ export default function ApprovalPage() {
         </Card>
       )}
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {review.rewriteId !== null && (
-          <Button asChild variant="outline">
-            <Link to={`/result/${review.rewriteId}`}>Lihat Hasil</Link>
-          </Button>
-        )}
-        <Button
-          onClick={handleRewrite}
-          disabled={selectedIds.size === 0 || isSubmitting || review.suggestions.length === 0}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="animate-spin" aria-hidden="true" />
-              Menulis ulang CV…
-            </>
-          ) : (
-            <>
-              Setujui & Rewrite
-              <Sparkles aria-hidden="true" />
-            </>
+      <div className="flex flex-wrap items-center justify-end gap-4">
+        <div className="grid gap-1.5">
+          <label htmlFor="rewrite-format" className="text-sm font-medium text-foreground">
+            Format CV ATS
+          </label>
+          <Select
+            value={format}
+            onValueChange={(value) => setFormat(value as RewriteFormat)}
+            disabled={isSubmitting}
+          >
+            <SelectTrigger id="rewrite-format" className="w-64">
+              <SelectValue placeholder="Pilih format" />
+            </SelectTrigger>
+            <SelectContent>
+              {FORMAT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <span className="grid gap-1">
+                    <span>{option.label}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {option.description}
+                    </span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {review.rewriteId !== null && (
+            <Button asChild variant="outline">
+              <Link to={`/result/${review.rewriteId}`}>Lihat Hasil</Link>
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={handleRewrite}
+            disabled={selectedIds.size === 0 || isSubmitting || review.suggestions.length === 0}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden="true" />
+                Menulis ulang CV…
+              </>
+            ) : (
+              <>
+                Setujui & Rewrite
+                <Sparkles aria-hidden="true" />
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </main>
   )

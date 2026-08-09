@@ -8,10 +8,30 @@ import {
   getTargetJobById,
   insertRewrite,
 } from '../db/repos.js'
-import { rewriteCv, N8nProxyError } from '../services/n8n-proxy.js'
-import { composeRewrite } from '../services/rewrite.js'
+import {
+  rewriteCv,
+  N8nProxyError,
+  type RewriteFormat,
+} from '../services/n8n-proxy.js'
+import { buildAnalyzeContext, composeRewrite } from '../services/rewrite.js'
 import { exportRewrite } from '../services/export.js'
 import { parseId } from '../utils/route-id.js'
+
+const REWRITE_FORMATS: readonly RewriteFormat[] = [
+  'chronological',
+  'combination',
+  'functional',
+]
+
+function normalizeFormat(raw: unknown): RewriteFormat {
+  if (
+    typeof raw === 'string' &&
+    (REWRITE_FORMATS as readonly string[]).includes(raw)
+  ) {
+    return raw as RewriteFormat
+  }
+  return 'chronological'
+}
 
 export function createRewritesRouter(db: DatabaseSync): Router {
   const router = Router()
@@ -39,6 +59,9 @@ export function createRewritesRouter(db: DatabaseSync): Router {
       return
     }
 
+    const format = normalizeFormat(req.body?.format)
+    const analyzeContext = buildAnalyzeContext(review)
+
     let result
     try {
       result = await rewriteCv({
@@ -46,6 +69,8 @@ export function createRewritesRouter(db: DatabaseSync): Router {
         targetJobDescription: targetJob.description,
         originalCv: cv.cvText,
         approvedSuggestions: approval.approvedSuggestions,
+        format,
+        analyzeContext,
       })
     } catch (error) {
       if (error instanceof N8nProxyError) {

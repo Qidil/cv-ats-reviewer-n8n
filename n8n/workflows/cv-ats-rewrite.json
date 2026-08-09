@@ -50,6 +50,24 @@
               "name": "approvedSuggestions",
               "value": "={{ $json.body?.approvedSuggestions ?? $json.approvedSuggestions ?? [] }}",
               "type": "array"
+            },
+            {
+              "id": "format",
+              "name": "format",
+              "value": "={{ $json.body?.format ?? $json.format ?? \"chronological\" }}",
+              "type": "string"
+            },
+            {
+              "id": "format-instr",
+              "name": "rewriteFormatInstruction",
+              "value": "={{ ($json.body?.format ?? $json.format ?? \"chronological\") === \"combination\" ? \"Gunakan format KOMBINASI: tempatkan bagian Skills/Keahlian yang menonjol di bagian atas, lalu pengalaman kerja secara kronologis; urutan heading Summary, Skills, Work Experience, Education.\" : ($json.body?.format ?? $json.format ?? \"chronological\") === \"functional\" ? \"Gunakan format FUNGSIONAL: kelompokkan pencapaian berdasarkan bidang kompetensi/keahlian daripada garis waktu; urutan heading Summary, Skills, Work Experience, Education.\" : \"Gunakan format KRONOLOGIS (paling aman untuk ATS): urutkan pengalaman kerja dari yang terbaru ke terlama dengan tanggal konsisten; urutan heading Summary, Work Experience, Education, Skills.\" }}",
+              "type": "string"
+            },
+            {
+              "id": "analyze-ctx",
+              "name": "analyzeContext",
+              "value": "={{ $json.body?.analyzeContext ?? $json.analyzeContext ?? \"\" }}",
+              "type": "string"
             }
           ]
         }
@@ -77,11 +95,11 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. FORMAT ATS WAJIB: (1) heading standar yang dikenali ATS: \"Summary\", \"Work Experience\", \"Education\", \"Skills\"; (2) layout single column - tanpa tabel, multi-kolom, gambar, ikon, atau text box; (3) informasi kontak (nama, email, telepon, lokasi) di body dokumen, bukan header/footer; (4) bullet point untuk tiap pencapaian/tugas, dengan metrik terukur (angka, persen, dampak) dan tool yang dipakai - bukan sekadar daftar tugas; (5) cerminkan istilah dan frasa JD secara persis tanpa keyword stuffing; (6) panjang 1-2 halaman. Ikuti juga instruksi format spesifik pada pesan pengguna. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}\n\nInstruksi format:\n{{ $(\"Normalize Input\").item.json.rewriteFormatInstruction }}\n\nHasil analisis awal (untuk panduan perbaikan):\n{{ $(\"Normalize Input\").item.json.analyzeContext }}"
             }
           ],
           "temperature": 0.2,
@@ -169,11 +187,11 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. FORMAT ATS WAJIB: (1) heading standar yang dikenali ATS: \"Summary\", \"Work Experience\", \"Education\", \"Skills\"; (2) layout single column - tanpa tabel, multi-kolom, gambar, ikon, atau text box; (3) informasi kontak (nama, email, telepon, lokasi) di body dokumen, bukan header/footer; (4) bullet point untuk tiap pencapaian/tugas, dengan metrik terukur (angka, persen, dampak) dan tool yang dipakai - bukan sekadar daftar tugas; (5) cerminkan istilah dan frasa JD secara persis tanpa keyword stuffing; (6) panjang 1-2 halaman. Ikuti juga instruksi format spesifik pada pesan pengguna. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}\n\nInstruksi format:\n{{ $(\"Normalize Input\").item.json.rewriteFormatInstruction }}\n\nHasil analisis awal (untuk panduan perbaikan):\n{{ $(\"Normalize Input\").item.json.analyzeContext }}"
             }
           ],
           "temperature": 0.2,
@@ -213,11 +231,11 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. FORMAT ATS WAJIB: (1) heading standar yang dikenali ATS: \"Summary\", \"Work Experience\", \"Education\", \"Skills\"; (2) layout single column - tanpa tabel, multi-kolom, gambar, ikon, atau text box; (3) informasi kontak (nama, email, telepon, lokasi) di body dokumen, bukan header/footer; (4) bullet point untuk tiap pencapaian/tugas, dengan metrik terukur (angka, persen, dampak) dan tool yang dipakai - bukan sekadar daftar tugas; (5) cerminkan istilah dan frasa JD secara persis tanpa keyword stuffing; (6) panjang 1-2 halaman. Ikuti juga instruksi format spesifik pada pesan pengguna. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}\n\nInstruksi format:\n{{ $(\"Normalize Input\").item.json.rewriteFormatInstruction }}\n\nHasil analisis awal (untuk panduan perbaikan):\n{{ $(\"Normalize Input\").item.json.analyzeContext }}"
             }
           ],
           "temperature": 0.2,
@@ -257,11 +275,11 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. FORMAT ATS WAJIB: (1) heading standar yang dikenali ATS: \"Summary\", \"Work Experience\", \"Education\", \"Skills\"; (2) layout single column - tanpa tabel, multi-kolom, gambar, ikon, atau text box; (3) informasi kontak (nama, email, telepon, lokasi) di body dokumen, bukan header/footer; (4) bullet point untuk tiap pencapaian/tugas, dengan metrik terukur (angka, persen, dampak) dan tool yang dipakai - bukan sekadar daftar tugas; (5) cerminkan istilah dan frasa JD secara persis tanpa keyword stuffing; (6) panjang 1-2 halaman. Ikuti juga instruksi format spesifik pada pesan pengguna. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}\n\nInstruksi format:\n{{ $(\"Normalize Input\").item.json.rewriteFormatInstruction }}\n\nHasil analisis awal (untuk panduan perbaikan):\n{{ $(\"Normalize Input\").item.json.analyzeContext }}"
             }
           ],
           "temperature": 0.2,
@@ -301,11 +319,11 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), single column, bullet points, tanpa gambar atau tabel. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
+              "content": "Kamu adalah penulis CV profesional. Tulis ulang CV asli menjadi CV ATS-friendly yang cocok dengan deskripsi pekerjaan, DENGAN MENERAPKAN SEMUA saran yang disetujui. PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) - jangan menambah atau mengubah fakta. Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. FORMAT ATS WAJIB: (1) heading standar yang dikenali ATS: \"Summary\", \"Work Experience\", \"Education\", \"Skills\"; (2) layout single column - tanpa tabel, multi-kolom, gambar, ikon, atau text box; (3) informasi kontak (nama, email, telepon, lokasi) di body dokumen, bukan header/footer; (4) bullet point untuk tiap pencapaian/tugas, dengan metrik terukur (angka, persen, dampak) dan tool yang dipakai - bukan sekadar daftar tugas; (5) cerminkan istilah dan frasa JD secara persis tanpa keyword stuffing; (6) panjang 1-2 halaman. Ikuti juga instruksi format spesifik pada pesan pengguna. Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan."
             },
             {
               "role": "user",
-              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}"
+              "content": "=CV asli:\n{{ $(\"Normalize Input\").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($(\"Normalize Input\").item.json.approvedSuggestions) }}\n\nInstruksi format:\n{{ $(\"Normalize Input\").item.json.rewriteFormatInstruction }}\n\nHasil analisis awal (untuk panduan perbaikan):\n{{ $(\"Normalize Input\").item.json.analyzeContext }}"
             }
           ],
           "temperature": 0.2,
@@ -345,7 +363,7 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Selain fakta, nilai juga kepatuhan FORMAT ATS: heading standar yang dikenali ATS (\"Summary\", \"Work Experience\", \"Education\", \"Skills\"), layout single column tanpa tabel, multi-kolom, gambar, atau ikon, bullet point outcome-led, tanpa keyword stuffing. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang/berubah ATAU pelanggaran format. Gunakan bahasa Indonesia."
             },
             {
               "role": "user",
@@ -433,7 +451,7 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Selain fakta, nilai juga kepatuhan FORMAT ATS: heading standar yang dikenali ATS (\"Summary\", \"Work Experience\", \"Education\", \"Skills\"), layout single column tanpa tabel, multi-kolom, gambar, atau ikon, bullet point outcome-led, tanpa keyword stuffing. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang/berubah ATAU pelanggaran format. Gunakan bahasa Indonesia."
             },
             {
               "role": "user",
@@ -480,7 +498,7 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Selain fakta, nilai juga kepatuhan FORMAT ATS: heading standar yang dikenali ATS (\"Summary\", \"Work Experience\", \"Education\", \"Skills\"), layout single column tanpa tabel, multi-kolom, gambar, atau ikon, bullet point outcome-led, tanpa keyword stuffing. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang/berubah ATAU pelanggaran format. Gunakan bahasa Indonesia."
             },
             {
               "role": "user",
@@ -527,7 +545,7 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Selain fakta, nilai juga kepatuhan FORMAT ATS: heading standar yang dikenali ATS (\"Summary\", \"Work Experience\", \"Education\", \"Skills\"), layout single column tanpa tabel, multi-kolom, gambar, atau ikon, bullet point outcome-led, tanpa keyword stuffing. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang/berubah ATAU pelanggaran format. Gunakan bahasa Indonesia."
             },
             {
               "role": "user",
@@ -574,7 +592,7 @@
           "messages": [
             {
               "role": "system",
-              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia."
+              "content": "Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) masih ada dan tidak berubah. Selain fakta, nilai juga kepatuhan FORMAT ATS: heading standar yang dikenali ATS (\"Summary\", \"Work Experience\", \"Education\", \"Skills\"), layout single column tanpa tabel, multi-kolom, gambar, atau ikon, bullet point outcome-led, tanpa keyword stuffing. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"postScore\": number 0-100, \"warnings\": [string]} untuk setiap fakta yang hilang/berubah ATAU pelanggaran format. Gunakan bahasa Indonesia."
             },
             {
               "role": "user",

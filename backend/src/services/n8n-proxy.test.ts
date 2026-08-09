@@ -136,6 +136,8 @@ describe('rewriteCv — n8n rewrite webhook proxy', () => {
       targetJobDescription: 'Backend',
       originalCv: 'CV asli',
       approvedSuggestions: [{ id: 'sug-1', title: 'Add metrics' }],
+      format: 'chronological' as const,
+      analyzeContext: 'Skor keseluruhan analisis: 78',
     }
     await rewriteCv(payload)
 
@@ -151,6 +153,8 @@ describe('rewriteCv — n8n rewrite webhook proxy', () => {
       targetJobDescription: 'JD',
       originalCv: 'CV',
       approvedSuggestions: [],
+      format: 'chronological',
+      analyzeContext: '',
     })
     expect(result).toEqual(REWRITE_BODY)
   })
@@ -162,6 +166,8 @@ describe('rewriteCv — n8n rewrite webhook proxy', () => {
       targetJobDescription: 'JD',
       originalCv: 'CV',
       approvedSuggestions: [],
+      format: 'chronological',
+      analyzeContext: '',
     })
     expect(result.postCheckModel).toBeNull()
     expect(result.postCheckRaw).toBeNull()
@@ -173,14 +179,28 @@ describe('rewriteCv — n8n rewrite webhook proxy', () => {
       vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }),
     )
     await expect(
-      rewriteCv({ cvId: 7, targetJobDescription: 'JD', originalCv: 'CV', approvedSuggestions: [] }),
+      rewriteCv({
+        cvId: 7,
+        targetJobDescription: 'JD',
+        originalCv: 'CV',
+        approvedSuggestions: [],
+        format: 'chronological',
+        analyzeContext: '',
+      }),
     ).rejects.toThrow(N8nProxyError)
   })
 
   it('throws N8nProxyError when raw is missing', async () => {
     mockFetchJson({ model: 'm', postCheckRaw: '{}' })
     await expect(
-      rewriteCv({ cvId: 7, targetJobDescription: 'JD', originalCv: 'CV', approvedSuggestions: [] }),
+      rewriteCv({
+        cvId: 7,
+        targetJobDescription: 'JD',
+        originalCv: 'CV',
+        approvedSuggestions: [],
+        format: 'chronological',
+        analyzeContext: '',
+      }),
     ).rejects.toThrow(N8nProxyError)
   })
 })

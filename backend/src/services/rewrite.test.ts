@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { composeRewrite } from './rewrite.js'
+import { buildAnalyzeContext, composeRewrite } from './rewrite.js'
+import type { Review } from '../db/repos.js'
 import type { RewriteResult } from './n8n-proxy.js'
 
 function baseResult(overrides: Partial<RewriteResult> = {}): RewriteResult {
@@ -69,5 +70,56 @@ describe('composeRewrite — rewrite record composition', () => {
   it('carries the post-check model through as postModelUsed', () => {
     const composed = composeRewrite(baseResult())
     expect(composed.postModelUsed).toBe('nvidia/nemotron-3-nano-30b-a3b:free')
+  })
+})
+
+function baseReview(overrides: Partial<Review> = {}): Review {
+  return {
+    id: 1,
+    cvId: 1,
+    targetJobId: 1,
+    overallScore: 72.5,
+    atsChecks: [
+      { id: 'keyword', name: 'Keyword match', status: 'warn', score: 60, detail: 'Missing: terraform' },
+      { id: 'skills', name: 'Skills coverage', status: 'pass', score: 85, detail: 'ok' },
+      { id: 'sections', name: 'Section completeness', status: 'fail', score: 40, detail: 'Tidak ada bagian Education' },
+    ],
+    weaknesses: ['Sedikit pencapaian terukur'],
+    suggestions: [],
+    modelUsed: 'nvidia/test:free',
+    status: 'completed',
+    errorMessage: null,
+    createdAt: '2026-08-09T00:00:00.000Z',
+    ...overrides,
+  }
+}
+
+describe('buildAnalyzeContext — analyze → rewrite context', () => {
+  it('includes overallScore and only non-pass checks', () => {
+    const context = buildAnalyzeContext(baseReview())
+    expect(context).toContain('Skor keseluruhan analisis: 72.5')
+    expect(context).toContain('Keyword match (warn, skor 60)')
+    expect(context).toContain('Section completeness (fail, skor 40)')
+    expect(context).not.toContain('Skills coverage')
+  })
+
+  it('includes weaknesses', () => {
+    const context = buildAnalyzeContext(baseReview())
+    expect(context).toContain('Kelemahan yang terdeteksi:')
+    expect(context).toContain('- Sedikit pencapaian terukur')
+  })
+
+  it('omits check/weakness sections when there is nothing non-pass', () => {
+    const context = buildAnalyzeContext(
+      baseReview({
+        atsChecks: [
+          { id: 'keyword', name: 'Keyword match', status: 'pass', score: 90, detail: 'ok' },
+        ],
+        weaknesses: [],
+      }),
+    )
+    expect(context).toContain('Skor keseluruhan analisis: 72.5')
+    expect(context).not.toContain('Cek yang belum lolos:')
+    expect(context).not.toContain('Kelemahan yang terdeteksi:')
   })
 })

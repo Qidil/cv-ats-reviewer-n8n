@@ -28,6 +28,9 @@ const normalizeInput = node({
           { id: 'jd', name: 'targetJobDescription', value: expr('{{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? "" }}'), type: 'string' },
           { id: 'cv-text', name: 'originalCv', value: expr('{{ $json.body?.originalCv ?? $json.originalCv ?? "" }}'), type: 'string' },
           { id: 'suggestions', name: 'approvedSuggestions', value: expr('{{ $json.body?.approvedSuggestions ?? $json.approvedSuggestions ?? [] }}'), type: 'array' },
+          { id: 'format', name: 'format', value: expr('{{ $json.body?.format ?? $json.format ?? "chronological" }}'), type: 'string' },
+          { id: 'format-instr', name: 'rewriteFormatInstruction', value: expr('{{ ($json.body?.format ?? $json.format ?? "chronological") === "combination" ? "Gunakan format KOMBINASI: tempatkan bagian Skills/Keahlian yang menonjol di bagian atas, lalu pengalaman kerja secara kronologis; urutan heading Summary, Skills, Work Experience, Education." : ($json.body?.format ?? $json.format ?? "chronological") === "functional" ? "Gunakan format FUNGSIONAL: kelompokkan pencapaian berdasarkan bidang kompetensi/keahlian daripada garis waktu; urutan heading Summary, Skills, Work Experience, Education." : "Gunakan format KRONOLOGIS (paling aman untuk ATS): urutkan pengalaman kerja dari yang terbaru ke terlama dengan tanggal konsisten; urutan heading Summary, Work Experience, Education, Skills." }}'), type: 'string' },
+          { id: 'analyze-ctx', name: 'analyzeContext', value: expr('{{ $json.body?.analyzeContext ?? $json.analyzeContext ?? "" }}'), type: 'string' },
         ],
       },
     },
@@ -40,9 +43,24 @@ const rewriteSystemPrompt =
   'PERTAHANKAN SEMUA fakta dari CV asli (nama, tanggal, perusahaan, pendidikan, angka) ' +
   '- jangan menambah atau mengubah fakta. ' +
   'Tulis CV dalam bahasa yang sama dengan deskripsi pekerjaan (JD), kecuali diminta lain. ' +
-  'Format: markdown dengan heading standar (Pengalaman Kerja, Pendidikan, Keahlian), ' +
-  'single column, bullet points, tanpa gambar atau tabel. ' +
+  'FORMAT ATS WAJIB: ' +
+  '(1) heading standar yang dikenali ATS: "Summary", "Work Experience", "Education", "Skills"; ' +
+  '(2) layout single column - tanpa tabel, multi-kolom, gambar, ikon, atau text box; ' +
+  '(3) informasi kontak (nama, email, telepon, lokasi) di body dokumen, bukan header/footer; ' +
+  '(4) bullet point untuk tiap pencapaian/tugas, dengan metrik terukur (angka, persen, dampak) ' +
+  'dan tool yang dipakai - bukan sekadar daftar tugas; ' +
+  '(5) cerminkan istilah dan frasa JD secara persis tanpa keyword stuffing; ' +
+  '(6) panjang 1-2 halaman. ' +
+  'Ikuti juga instruksi format spesifik pada pesan pengguna. ' +
   'Kembalikan HANYA markdown CV hasil tulis ulang tanpa penjelasan.'
+
+const rewriteUserMessage = expr(
+  'CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\n' +
+  'Deskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\n' +
+  'Saran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}\n\n' +
+  'Instruksi format:\n{{ $("Normalize Input").item.json.rewriteFormatInstruction }}\n\n' +
+  'Hasil analisis awal (untuk panduan perbaikan):\n{{ $("Normalize Input").item.json.analyzeContext }}'
+)
 
 const rewriteM1 = node({
   type: 'n8n-nodes-base.httpRequest',
@@ -62,7 +80,7 @@ const rewriteM1 = node({
         model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
+          { role: 'user', content: rewriteUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -92,7 +110,7 @@ const rewriteM2 = node({
         model: 'nvidia/nemotron-3-super-120b-a12b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
+          { role: 'user', content: rewriteUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -122,7 +140,7 @@ const rewriteM3 = node({
         model: 'nvidia/nemotron-3-nano-30b-a3b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
+          { role: 'user', content: rewriteUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -152,7 +170,7 @@ const rewriteM4 = node({
         model: 'google/gemma-4-31b-it:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
+          { role: 'user', content: rewriteUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -185,7 +203,7 @@ const rewriteM5 = node({
         model: 'openai/gpt-oss-20b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Normalize Input").item.json.originalCv }}\n\nDeskripsi pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}\n\nSaran yang disetujui:\n{{ JSON.stringify($("Normalize Input").item.json.approvedSuggestions) }}') },
+          { role: 'user', content: rewriteUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -232,9 +250,12 @@ const postCheckSystemPrompt =
   'Kamu adalah penilai ATS. Bandingkan CV hasil tulis ulang dengan CV asli. ' +
   'Pastikan SEMUA fakta penting (nama, tanggal, pengalaman, pendidikan, keterampilan, angka) ' +
   'masih ada dan tidak berubah. ' +
+  'Selain fakta, nilai juga kepatuhan FORMAT ATS: heading standar yang dikenali ATS ' +
+  '("Summary", "Work Experience", "Education", "Skills"), layout single column tanpa tabel, ' +
+  'multi-kolom, gambar, atau ikon, bullet point outcome-led, tanpa keyword stuffing. ' +
   'Kembalikan HANYA JSON tanpa markdown code fence dengan format: ' +
   '{"postScore": number 0-100, "warnings": [string]} ' +
-  'untuk setiap fakta yang hilang atau berubah. Gunakan bahasa Indonesia.'
+  'untuk setiap fakta yang hilang/berubah ATAU pelanggaran format. Gunakan bahasa Indonesia.'
 
 const postM1 = node({
   type: 'n8n-nodes-base.httpRequest',

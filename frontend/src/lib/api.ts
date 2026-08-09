@@ -6,6 +6,7 @@ import type {
   ExportFormat,
   ReviewDetail,
   Rewrite,
+  RewriteFormat,
 } from '@/types/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
@@ -85,8 +86,12 @@ export const api = {
     })
   },
 
-  triggerRewrite(approvalId: number): Promise<Rewrite> {
-    return request(`/api/approvals/${approvalId}/rewrite`, { method: 'POST' })
+  triggerRewrite(approvalId: number, format: RewriteFormat = 'chronological'): Promise<Rewrite> {
+    return request(`/api/approvals/${approvalId}/rewrite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format }),
+    })
   },
 
   listCvs(): Promise<CvListItem[]> {
