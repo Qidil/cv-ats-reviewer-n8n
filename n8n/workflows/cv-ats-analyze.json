@@ -1,669 +1,671 @@
 {
-  "name": "CV ATS Analyze",
-  "nodes": [
-    {
-      "id": "38bd672e-c8a6-4940-a42c-6c2dfd83f370",
-      "name": "CV Analyze Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        0,
-        0
-      ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "cv-analyze",
-        "responseMode": "lastNode",
-        "responseData": "firstEntryJson",
-        "options": {}
-      },
-      "webhookId": "e395c290-b393-426e-9b43-c0b115c33fa3"
-    },
-    {
-      "id": "939ca960-0804-4bfd-9f29-4bbce28feb1b",
-      "name": "Normalize Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        224,
-        0
-      ],
-      "parameters": {
-        "mode": "manual",
-        "includeOtherFields": true,
-        "assignments": {
-          "assignments": [
-            {
-              "id": "cv-text",
-              "name": "cvText",
-              "value": "={{ $json.body?.cvText ?? $json.cvText ?? \"\" }}",
-              "type": "string"
-            },
-            {
-              "id": "jd",
-              "name": "targetJobDescription",
-              "value": "={{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? \"\" }}",
-              "type": "string"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "3a36885a-7c1f-4b1b-8ef5-91928fe63a12",
-      "name": "Analyze - Model 1",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        540,
-        300
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openRouterApi",
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": {
-          "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": "Kamu adalah penilai ATS (Applicant Tracking System) untuk CV. Analisis kecocokan CV terhadap deskripsi pekerjaan (JD). Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
-            },
-            {
-              "role": "user",
-              "content": "=CV:\n{{ $(\"Normalize Input\").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}"
-            }
-          ],
-          "temperature": 0.2,
-          "max_tokens": 2048
-        },
-        "options": {
-          "timeout": 60000
-        }
-      },
-      "onError": "continueErrorOutput",
-      "credentials": {
-        "openRouterApi": {
-          "id": "DNXYjrGmURVEVg05",
-          "name": "OpenRouter account"
-        }
-      }
-    },
-    {
-      "id": "bc42474d-060b-4ee2-83f2-b2844a845fbd",
-      "name": "Format Output",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1120,
-        0
-      ],
-      "parameters": {
-        "mode": "manual",
-        "assignments": {
-          "assignments": [
-            {
-              "id": "model",
-              "name": "model",
-              "value": "={{ $json.model }}",
-              "type": "string"
-            },
-            {
-              "id": "raw",
-              "name": "raw",
-              "value": "={{ $json.choices?.[0]?.message?.content ?? \"\" }}",
-              "type": "string"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "237ca90b-2dc8-42ed-a5f6-2fa73d672fb8",
-      "name": "Analyze - Model 2",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        540,
-        480
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openRouterApi",
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": {
-          "model": "nvidia/nemotron-3-super-120b-a12b:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": "Kamu adalah penilai ATS (Applicant Tracking System) untuk CV. Analisis kecocokan CV terhadap deskripsi pekerjaan (JD). Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
-            },
-            {
-              "role": "user",
-              "content": "=CV:\n{{ $(\"Normalize Input\").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}"
-            }
-          ],
-          "temperature": 0.2,
-          "max_tokens": 2048
-        },
-        "options": {
-          "timeout": 60000
-        }
-      },
-      "onError": "continueErrorOutput",
-      "credentials": {
-        "openRouterApi": {
-          "id": "DNXYjrGmURVEVg05",
-          "name": "OpenRouter account"
-        }
-      }
-    },
-    {
-      "id": "f6825976-08a9-497c-96ea-b8f4537c1237",
-      "name": "Analyze - Model 3",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        540,
-        660
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openRouterApi",
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": {
-          "model": "nvidia/nemotron-3-nano-30b-a3b:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": "Kamu adalah penilai ATS (Applicant Tracking System) untuk CV. Analisis kecocokan CV terhadap deskripsi pekerjaan (JD). Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
-            },
-            {
-              "role": "user",
-              "content": "=CV:\n{{ $(\"Normalize Input\").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}"
-            }
-          ],
-          "temperature": 0.2,
-          "max_tokens": 2048
-        },
-        "options": {
-          "timeout": 60000
-        }
-      },
-      "onError": "continueErrorOutput",
-      "credentials": {
-        "openRouterApi": {
-          "id": "DNXYjrGmURVEVg05",
-          "name": "OpenRouter account"
-        }
-      }
-    },
-    {
-      "id": "4b63399a-5a56-471b-89dc-b097f2506ddf",
-      "name": "Analyze - Model 4",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        540,
-        840
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openRouterApi",
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": {
-          "model": "google/gemma-4-31b-it:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": "Kamu adalah penilai ATS (Applicant Tracking System) untuk CV. Analisis kecocokan CV terhadap deskripsi pekerjaan (JD). Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
-            },
-            {
-              "role": "user",
-              "content": "=CV:\n{{ $(\"Normalize Input\").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}"
-            }
-          ],
-          "temperature": 0.2,
-          "max_tokens": 2048
-        },
-        "options": {
-          "timeout": 60000
-        }
-      },
-      "onError": "continueErrorOutput",
-      "credentials": {
-        "openRouterApi": {
-          "id": "DNXYjrGmURVEVg05",
-          "name": "OpenRouter account"
-        }
-      }
-    },
-    {
-      "id": "cd91b315-152d-4764-afec-281cfe07642b",
-      "name": "Analyze - Model 5",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        540,
-        1020
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openRouterApi",
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": {
-          "model": "openai/gpt-oss-20b:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": "Kamu adalah penilai ATS (Applicant Tracking System) untuk CV. Analisis kecocokan CV terhadap deskripsi pekerjaan (JD). Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
-            },
-            {
-              "role": "user",
-              "content": "=CV:\n{{ $(\"Normalize Input\").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}"
-            }
-          ],
-          "temperature": 0.2,
-          "max_tokens": 2048
-        },
-        "options": {
-          "timeout": 60000
-        }
-      },
-      "onError": "continueErrorOutput",
-      "credentials": {
-        "openRouterApi": {
-          "id": "DNXYjrGmURVEVg05",
-          "name": "OpenRouter account"
-        }
-      }
-    },
-    {
-      "id": "258abed8-a8de-4a08-bf69-72270adad8cf",
-      "name": "Analyze Valid Model 1",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        880,
-        300
-      ],
-      "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "conditions": [
-            {
-              "leftValue": "={{ !$json.error }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            },
-            {
-              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            },
-            {
-              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            }
-          ],
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          }
-        }
-      }
-    },
-    {
-      "id": "06bb2f64-63f2-4148-abfb-35aa9f0c9d1c",
-      "name": "Analyze Valid Model 2",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        880,
-        480
-      ],
-      "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "conditions": [
-            {
-              "leftValue": "={{ !$json.error }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            },
-            {
-              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            },
-            {
-              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            }
-          ],
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          }
-        }
-      }
-    },
-    {
-      "id": "5c6a4b78-9541-4f94-b4bd-df7d87cff12f",
-      "name": "Analyze Valid Model 3",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        880,
-        660
-      ],
-      "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "conditions": [
-            {
-              "leftValue": "={{ !$json.error }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            },
-            {
-              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            },
-            {
-              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            }
-          ],
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          }
-        }
-      }
-    },
-    {
-      "id": "de036aca-bc66-4cd0-a62a-3534acaf85d6",
-      "name": "Analyze Valid Model 4",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        880,
-        840
-      ],
-      "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "conditions": [
-            {
-              "leftValue": "={{ !$json.error }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            },
-            {
-              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length > 0 }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            },
-            {
-              "leftValue": "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
-              "operator": {
-                "operation": "equals",
-                "type": "boolean"
-              },
-              "rightValue": true
-            }
-          ],
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          }
-        }
-      }
-    }
-  ],
-  "connections": {
-    "CV Analyze Webhook": {
-      "main": [
-        [
-          {
-            "node": "Normalize Input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Normalize Input": {
-      "main": [
-        [
-          {
-            "node": "Analyze - Model 1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze - Model 1": {
-      "main": [
-        [
-          {
-            "node": "Analyze Valid Model 1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Analyze - Model 2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze - Model 2": {
-      "main": [
-        [
-          {
-            "node": "Analyze Valid Model 2",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Analyze - Model 3",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze - Model 3": {
-      "main": [
-        [
-          {
-            "node": "Analyze Valid Model 3",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Analyze - Model 4",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze - Model 4": {
-      "main": [
-        [
-          {
-            "node": "Analyze Valid Model 4",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Analyze - Model 5",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze - Model 5": {
-      "main": [
-        [
-          {
-            "node": "Format Output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze Valid Model 1": {
-      "main": [
-        [
-          {
-            "node": "Format Output",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Analyze - Model 2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze Valid Model 2": {
-      "main": [
-        [
-          {
-            "node": "Format Output",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Analyze - Model 3",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze Valid Model 3": {
-      "main": [
-        [
-          {
-            "node": "Format Output",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Analyze - Model 4",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Analyze Valid Model 4": {
-      "main": [
-        [
-          {
-            "node": "Format Output",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Analyze - Model 5",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
-  },
-  "settings": {
-    "executionOrder": "v1",
-    "availableInMCP": true
-  }
+    "name":  "CV ATS Analyze",
+    "nodes":  [
+                  {
+                      "id":  "38bd672e-c8a6-4940-a42c-6c2dfd83f370",
+                      "name":  "CV Analyze Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2.1,
+                      "position":  [
+                                       0,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "cv-analyze",
+                                         "responseMode":  "lastNode",
+                                         "responseData":  "firstEntryJson",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "webhookId":  "e395c290-b393-426e-9b43-c0b115c33fa3"
+                  },
+                  {
+                      "id":  "939ca960-0804-4bfd-9f29-4bbce28feb1b",
+                      "name":  "Normalize Input",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       224,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "mode":  "manual",
+                                         "includeOtherFields":  true,
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "cv-text",
+                                                                                     "name":  "cvText",
+                                                                                     "value":  "={{ $json.body?.cvText ?? $json.cvText ?? \"\" }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "jd",
+                                                                                     "name":  "targetJobDescription",
+                                                                                     "value":  "={{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? \"\" }}",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         }
+                                     }
+                  },
+                  {
+                      "id":  "3a36885a-7c1f-4b1b-8ef5-91928fe63a12",
+                      "name":  "Analyze - Model 1",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       540,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://openrouter.ai/api/v1/chat/completions",
+                                         "authentication":  "predefinedCredentialType",
+                                         "nodeCredentialType":  "openRouterApi",
+                                         "sendBody":  true,
+                                         "contentType":  "json",
+                                         "specifyBody":  "json",
+                                         "jsonBody":  {
+                                                          "model":  "nvidia/nemotron-3-ultra-550b-a55b:free",
+                                                          "messages":  [
+                                                                           {
+                                                                               "role":  "system",
+                                                                               "content":  "Kamu adalah penilai ATS (Applicant Tracking System) yang STRICT dan kritikal terhadap CV. Nilai kecocokan CV terhadap deskripsi pekerjaan (JD) memakai rubrik berikut. RUBRIK SKOR (bobot, total 100): keyword match 40, skills coverage 20, sections completeness 15, formatting/parse-safety 10, quantified achievements 10, readability 5. Hitung overallScore sebagai rata-rata tertimbang dari 6 atsChecks di bawah sesuai bobot rubrik. JANGAN generos: beri skor rendah bila CV tidak memenuhi kriteria (keyword JD tidak tercermin, tanpa metrik, format sulit diparsing, bagian standar hilang). ANALISIS TIAP KRITERIA SECARA EKSPLISIT sebelum memberi skor, dan isi detail dengan bukti dari CV: 1) keyword â€” cocokkan tiap istilah JD terhadap CV (kata persis maupun frase; perhatikan sinonim/varian bentuk). Sebutkan berapa dari total istilah JD yang cocok dan istilah mana yang TIDAK ditemukan. 2) skills â€” bedakan skill WAJIB (required) vs PREFERRED pada JD; nilai kelengkapan CV terhadap keduanya. Sebutkan skill yang ada dan yang hilang. 3) sections â€” periksa bagian standar: summary/ringkasan, experience/pengalaman, education/pendidikan, skills/keahlian. Sebutkan bagian yang ADA dan yang HILANG. 4) quantified â€” cari achievement dengan angka/metrik (persen, jumlah, waktu, biaya). Sebutkan metrik spesifik yang ditemukan, atau nyatakan TIDAK ADA. 5) formatting â€” nilai keamanan parsing ATS: satu kolom, tanpa tabel/kolom ganda, heading jelas, tanpa gambar/footer. Sebutkan indikator nyata yang memengaruhi skor. 6) readability â€” nilai kerapian bahasa: ringkas, poin terstruktur, tanpa jargon berlebihan. Detail tiap check WAJIB menyebut bukti faktual spesifik dari CV (nama bagian, skill, angka, istilah JD) â€” BUKAN pernyataan generik; jika bukti tidak ada, nyatakan ketiadaannya. Per-check: score 0-100, status \u003e=80 = pass, 60-79 = warn, \u003c60 = fail. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks HARUS persis: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
+                                                                           },
+                                                                           {
+                                                                               "role":  "user",
+                                                                               "content":  "=CV:\n{{ $(\"Normalize Input\").item.json.cvText }}\n\nDeskripsi Pekerjaan (JD):\n{{ $(\"Normalize Input\").item.json.targetJobDescription }}"
+                                                                           }
+                                                                       ],
+                                                          "temperature":  0.2,
+                                                          "max_tokens":  2048
+                                                      },
+                                         "options":  {
+                                                         "timeout":  60000
+                                                     }
+                                     },
+                      "onError":  "continueErrorOutput",
+                      "credentials":  {
+                                          "openRouterApi":  {
+                                                                "id":  "DNXYjrGmURVEVg05",
+                                                                "name":  "OpenRouter account"
+                                                            }
+                                      }
+                  },
+                  {
+                      "id":  "bc42474d-060b-4ee2-83f2-b2844a845fbd",
+                      "name":  "Format Output",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       1120,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "mode":  "manual",
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "model",
+                                                                                     "name":  "model",
+                                                                                     "value":  "={{ $json.model }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "raw",
+                                                                                     "name":  "raw",
+                                                                                     "value":  "={{ $json.choices?.[0]?.message?.content ?? \"\" }}",
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                             ]
+                                                         }
+                                     }
+                  },
+                  {
+                      "id":  "237ca90b-2dc8-42ed-a5f6-2fa73d672fb8",
+                      "name":  "Analyze - Model 2",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       540,
+                                       480
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://openrouter.ai/api/v1/chat/completions",
+                                         "authentication":  "predefinedCredentialType",
+                                         "nodeCredentialType":  "openRouterApi",
+                                         "sendBody":  true,
+                                         "contentType":  "json",
+                                         "specifyBody":  "json",
+                                         "jsonBody":  {
+                                                          "model":  "nvidia/nemotron-3-super-120b-a12b:free",
+                                                          "messages":  [
+                                                                           {
+                                                                               "role":  "system",
+                                                                               "content":  "Kamu adalah penilai ATS (Applicant Tracking System) yang STRICT dan kritikal terhadap CV. Nilai kecocokan CV terhadap deskripsi pekerjaan (JD) memakai rubrik berikut. RUBRIK SKOR (bobot, total 100): keyword match 40, skills coverage 20, sections completeness 15, formatting/parse-safety 10, quantified achievements 10, readability 5. Hitung overallScore sebagai rata-rata tertimbang dari 6 atsChecks di bawah sesuai bobot rubrik. JANGAN generos: beri skor rendah bila CV tidak memenuhi kriteria (keyword JD tidak tercermin, tanpa metrik, format sulit diparsing, bagian standar hilang). ANALISIS TIAP KRITERIA SECARA EKSPLISIT sebelum memberi skor, dan isi detail dengan bukti dari CV: 1) keyword â€” cocokkan tiap istilah JD terhadap CV (kata persis maupun frase; perhatikan sinonim/varian bentuk). Sebutkan berapa dari total istilah JD yang cocok dan istilah mana yang TIDAK ditemukan. 2) skills â€” bedakan skill WAJIB (required) vs PREFERRED pada JD; nilai kelengkapan CV terhadap keduanya. Sebutkan skill yang ada dan yang hilang. 3) sections â€” periksa bagian standar: summary/ringkasan, experience/pengalaman, education/pendidikan, skills/keahlian. Sebutkan bagian yang ADA dan yang HILANG. 4) quantified â€” cari achievement dengan angka/metrik (persen, jumlah, waktu, biaya). Sebutkan metrik spesifik yang ditemukan, atau nyatakan TIDAK ADA. 5) formatting â€” nilai keamanan parsing ATS: satu kolom, tanpa tabel/kolom ganda, heading jelas, tanpa gambar/footer. Sebutkan indikator nyata yang memengaruhi skor. 6) readability â€” nilai kerapian bahasa: ringkas, poin terstruktur, tanpa jargon berlebihan. Detail tiap check WAJIB menyebut bukti faktual spesifik dari CV (nama bagian, skill, angka, istilah JD) â€” BUKAN pernyataan generik; jika bukti tidak ada, nyatakan ketiadaannya. Per-check: score 0-100, status \u003e=80 = pass, 60-79 = warn, \u003c60 = fail. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks HARUS persis: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
+                                                                           },
+                                                                           {
+                                                                               "role":  "user",
+                                                                               "content":  "={{ ($json.choices?.[0]?.finish_reason ?? \"\") === \"length\" \u0026\u0026 ($json.choices?.[0]?.message?.content ?? \"\").trim().length \u003e 0 ? \"Model sebelumnya terpotong oleh batas token. LANJUTKAN dari output parsial berikut dan LENGKAPI menjadi hasil akhir yang valid sesuai instruksi system prompt. JANGAN mulai dari awal; kerjakan hanya bagian yang belum selesai.\\n\\n=== OUTPUT PARSIAL MODEL SEBELUMNYA ===\\n\" + $json.choices[0].message.content + \"\\n\\n=== KONTEKS (dipakai untuk melengkapi) ===\\nCV:\\n\" + $(\"Normalize Input\").item.json.cvText + \"\\n\\nDeskripsi Pekerjaan (JD):\\n\" + $(\"Normalize Input\").item.json.targetJobDescription : \"CV:\\n\" + $(\"Normalize Input\").item.json.cvText + \"\\n\\nDeskripsi Pekerjaan (JD):\\n\" + $(\"Normalize Input\").item.json.targetJobDescription }}"
+                                                                           }
+                                                                       ],
+                                                          "temperature":  0.2,
+                                                          "max_tokens":  2048
+                                                      },
+                                         "options":  {
+                                                         "timeout":  60000
+                                                     }
+                                     },
+                      "onError":  "continueErrorOutput",
+                      "credentials":  {
+                                          "openRouterApi":  {
+                                                                "id":  "DNXYjrGmURVEVg05",
+                                                                "name":  "OpenRouter account"
+                                                            }
+                                      }
+                  },
+                  {
+                      "id":  "f6825976-08a9-497c-96ea-b8f4537c1237",
+                      "name":  "Analyze - Model 3",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       540,
+                                       660
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://openrouter.ai/api/v1/chat/completions",
+                                         "authentication":  "predefinedCredentialType",
+                                         "nodeCredentialType":  "openRouterApi",
+                                         "sendBody":  true,
+                                         "contentType":  "json",
+                                         "specifyBody":  "json",
+                                         "jsonBody":  {
+                                                          "model":  "nvidia/nemotron-3-nano-30b-a3b:free",
+                                                          "messages":  [
+                                                                           {
+                                                                               "role":  "system",
+                                                                               "content":  "Kamu adalah penilai ATS (Applicant Tracking System) yang STRICT dan kritikal terhadap CV. Nilai kecocokan CV terhadap deskripsi pekerjaan (JD) memakai rubrik berikut. RUBRIK SKOR (bobot, total 100): keyword match 40, skills coverage 20, sections completeness 15, formatting/parse-safety 10, quantified achievements 10, readability 5. Hitung overallScore sebagai rata-rata tertimbang dari 6 atsChecks di bawah sesuai bobot rubrik. JANGAN generos: beri skor rendah bila CV tidak memenuhi kriteria (keyword JD tidak tercermin, tanpa metrik, format sulit diparsing, bagian standar hilang). ANALISIS TIAP KRITERIA SECARA EKSPLISIT sebelum memberi skor, dan isi detail dengan bukti dari CV: 1) keyword â€” cocokkan tiap istilah JD terhadap CV (kata persis maupun frase; perhatikan sinonim/varian bentuk). Sebutkan berapa dari total istilah JD yang cocok dan istilah mana yang TIDAK ditemukan. 2) skills â€” bedakan skill WAJIB (required) vs PREFERRED pada JD; nilai kelengkapan CV terhadap keduanya. Sebutkan skill yang ada dan yang hilang. 3) sections â€” periksa bagian standar: summary/ringkasan, experience/pengalaman, education/pendidikan, skills/keahlian. Sebutkan bagian yang ADA dan yang HILANG. 4) quantified â€” cari achievement dengan angka/metrik (persen, jumlah, waktu, biaya). Sebutkan metrik spesifik yang ditemukan, atau nyatakan TIDAK ADA. 5) formatting â€” nilai keamanan parsing ATS: satu kolom, tanpa tabel/kolom ganda, heading jelas, tanpa gambar/footer. Sebutkan indikator nyata yang memengaruhi skor. 6) readability â€” nilai kerapian bahasa: ringkas, poin terstruktur, tanpa jargon berlebihan. Detail tiap check WAJIB menyebut bukti faktual spesifik dari CV (nama bagian, skill, angka, istilah JD) â€” BUKAN pernyataan generik; jika bukti tidak ada, nyatakan ketiadaannya. Per-check: score 0-100, status \u003e=80 = pass, 60-79 = warn, \u003c60 = fail. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks HARUS persis: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
+                                                                           },
+                                                                           {
+                                                                               "role":  "user",
+                                                                               "content":  "={{ ($json.choices?.[0]?.finish_reason ?? \"\") === \"length\" \u0026\u0026 ($json.choices?.[0]?.message?.content ?? \"\").trim().length \u003e 0 ? \"Model sebelumnya terpotong oleh batas token. LANJUTKAN dari output parsial berikut dan LENGKAPI menjadi hasil akhir yang valid sesuai instruksi system prompt. JANGAN mulai dari awal; kerjakan hanya bagian yang belum selesai.\\n\\n=== OUTPUT PARSIAL MODEL SEBELUMNYA ===\\n\" + $json.choices[0].message.content + \"\\n\\n=== KONTEKS (dipakai untuk melengkapi) ===\\nCV:\\n\" + $(\"Normalize Input\").item.json.cvText + \"\\n\\nDeskripsi Pekerjaan (JD):\\n\" + $(\"Normalize Input\").item.json.targetJobDescription : \"CV:\\n\" + $(\"Normalize Input\").item.json.cvText + \"\\n\\nDeskripsi Pekerjaan (JD):\\n\" + $(\"Normalize Input\").item.json.targetJobDescription }}"
+                                                                           }
+                                                                       ],
+                                                          "temperature":  0.2,
+                                                          "max_tokens":  2048
+                                                      },
+                                         "options":  {
+                                                         "timeout":  60000
+                                                     }
+                                     },
+                      "onError":  "continueErrorOutput",
+                      "credentials":  {
+                                          "openRouterApi":  {
+                                                                "id":  "DNXYjrGmURVEVg05",
+                                                                "name":  "OpenRouter account"
+                                                            }
+                                      }
+                  },
+                  {
+                      "id":  "4b63399a-5a56-471b-89dc-b097f2506ddf",
+                      "name":  "Analyze - Model 4",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       540,
+                                       840
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://openrouter.ai/api/v1/chat/completions",
+                                         "authentication":  "predefinedCredentialType",
+                                         "nodeCredentialType":  "openRouterApi",
+                                         "sendBody":  true,
+                                         "contentType":  "json",
+                                         "specifyBody":  "json",
+                                         "jsonBody":  {
+                                                          "model":  "google/gemma-4-31b-it:free",
+                                                          "messages":  [
+                                                                           {
+                                                                               "role":  "system",
+                                                                               "content":  "Kamu adalah penilai ATS (Applicant Tracking System) yang STRICT dan kritikal terhadap CV. Nilai kecocokan CV terhadap deskripsi pekerjaan (JD) memakai rubrik berikut. RUBRIK SKOR (bobot, total 100): keyword match 40, skills coverage 20, sections completeness 15, formatting/parse-safety 10, quantified achievements 10, readability 5. Hitung overallScore sebagai rata-rata tertimbang dari 6 atsChecks di bawah sesuai bobot rubrik. JANGAN generos: beri skor rendah bila CV tidak memenuhi kriteria (keyword JD tidak tercermin, tanpa metrik, format sulit diparsing, bagian standar hilang). ANALISIS TIAP KRITERIA SECARA EKSPLISIT sebelum memberi skor, dan isi detail dengan bukti dari CV: 1) keyword â€” cocokkan tiap istilah JD terhadap CV (kata persis maupun frase; perhatikan sinonim/varian bentuk). Sebutkan berapa dari total istilah JD yang cocok dan istilah mana yang TIDAK ditemukan. 2) skills â€” bedakan skill WAJIB (required) vs PREFERRED pada JD; nilai kelengkapan CV terhadap keduanya. Sebutkan skill yang ada dan yang hilang. 3) sections â€” periksa bagian standar: summary/ringkasan, experience/pengalaman, education/pendidikan, skills/keahlian. Sebutkan bagian yang ADA dan yang HILANG. 4) quantified â€” cari achievement dengan angka/metrik (persen, jumlah, waktu, biaya). Sebutkan metrik spesifik yang ditemukan, atau nyatakan TIDAK ADA. 5) formatting â€” nilai keamanan parsing ATS: satu kolom, tanpa tabel/kolom ganda, heading jelas, tanpa gambar/footer. Sebutkan indikator nyata yang memengaruhi skor. 6) readability â€” nilai kerapian bahasa: ringkas, poin terstruktur, tanpa jargon berlebihan. Detail tiap check WAJIB menyebut bukti faktual spesifik dari CV (nama bagian, skill, angka, istilah JD) â€” BUKAN pernyataan generik; jika bukti tidak ada, nyatakan ketiadaannya. Per-check: score 0-100, status \u003e=80 = pass, 60-79 = warn, \u003c60 = fail. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks HARUS persis: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
+                                                                           },
+                                                                           {
+                                                                               "role":  "user",
+                                                                               "content":  "={{ ($json.choices?.[0]?.finish_reason ?? \"\") === \"length\" \u0026\u0026 ($json.choices?.[0]?.message?.content ?? \"\").trim().length \u003e 0 ? \"Model sebelumnya terpotong oleh batas token. LANJUTKAN dari output parsial berikut dan LENGKAPI menjadi hasil akhir yang valid sesuai instruksi system prompt. JANGAN mulai dari awal; kerjakan hanya bagian yang belum selesai.\\n\\n=== OUTPUT PARSIAL MODEL SEBELUMNYA ===\\n\" + $json.choices[0].message.content + \"\\n\\n=== KONTEKS (dipakai untuk melengkapi) ===\\nCV:\\n\" + $(\"Normalize Input\").item.json.cvText + \"\\n\\nDeskripsi Pekerjaan (JD):\\n\" + $(\"Normalize Input\").item.json.targetJobDescription : \"CV:\\n\" + $(\"Normalize Input\").item.json.cvText + \"\\n\\nDeskripsi Pekerjaan (JD):\\n\" + $(\"Normalize Input\").item.json.targetJobDescription }}"
+                                                                           }
+                                                                       ],
+                                                          "temperature":  0.2,
+                                                          "max_tokens":  2048
+                                                      },
+                                         "options":  {
+                                                         "timeout":  60000
+                                                     }
+                                     },
+                      "onError":  "continueErrorOutput",
+                      "credentials":  {
+                                          "openRouterApi":  {
+                                                                "id":  "DNXYjrGmURVEVg05",
+                                                                "name":  "OpenRouter account"
+                                                            }
+                                      }
+                  },
+                  {
+                      "id":  "cd91b315-152d-4764-afec-281cfe07642b",
+                      "name":  "Analyze - Model 5",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       540,
+                                       1020
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://openrouter.ai/api/v1/chat/completions",
+                                         "authentication":  "predefinedCredentialType",
+                                         "nodeCredentialType":  "openRouterApi",
+                                         "sendBody":  true,
+                                         "contentType":  "json",
+                                         "specifyBody":  "json",
+                                         "jsonBody":  {
+                                                          "model":  "openai/gpt-oss-20b:free",
+                                                          "messages":  [
+                                                                           {
+                                                                               "role":  "system",
+                                                                               "content":  "Kamu adalah penilai ATS (Applicant Tracking System) yang STRICT dan kritikal terhadap CV. Nilai kecocokan CV terhadap deskripsi pekerjaan (JD) memakai rubrik berikut. RUBRIK SKOR (bobot, total 100): keyword match 40, skills coverage 20, sections completeness 15, formatting/parse-safety 10, quantified achievements 10, readability 5. Hitung overallScore sebagai rata-rata tertimbang dari 6 atsChecks di bawah sesuai bobot rubrik. JANGAN generos: beri skor rendah bila CV tidak memenuhi kriteria (keyword JD tidak tercermin, tanpa metrik, format sulit diparsing, bagian standar hilang). ANALISIS TIAP KRITERIA SECARA EKSPLISIT sebelum memberi skor, dan isi detail dengan bukti dari CV: 1) keyword â€” cocokkan tiap istilah JD terhadap CV (kata persis maupun frase; perhatikan sinonim/varian bentuk). Sebutkan berapa dari total istilah JD yang cocok dan istilah mana yang TIDAK ditemukan. 2) skills â€” bedakan skill WAJIB (required) vs PREFERRED pada JD; nilai kelengkapan CV terhadap keduanya. Sebutkan skill yang ada dan yang hilang. 3) sections â€” periksa bagian standar: summary/ringkasan, experience/pengalaman, education/pendidikan, skills/keahlian. Sebutkan bagian yang ADA dan yang HILANG. 4) quantified â€” cari achievement dengan angka/metrik (persen, jumlah, waktu, biaya). Sebutkan metrik spesifik yang ditemukan, atau nyatakan TIDAK ADA. 5) formatting â€” nilai keamanan parsing ATS: satu kolom, tanpa tabel/kolom ganda, heading jelas, tanpa gambar/footer. Sebutkan indikator nyata yang memengaruhi skor. 6) readability â€” nilai kerapian bahasa: ringkas, poin terstruktur, tanpa jargon berlebihan. Detail tiap check WAJIB menyebut bukti faktual spesifik dari CV (nama bagian, skill, angka, istilah JD) â€” BUKAN pernyataan generik; jika bukti tidak ada, nyatakan ketiadaannya. Per-check: score 0-100, status \u003e=80 = pass, 60-79 = warn, \u003c60 = fail. Kembalikan HANYA JSON tanpa markdown code fence dengan format: {\"overallScore\": number 0-100, \"atsChecks\": [{\"id\": string, \"name\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"score\": number, \"detail\": string}], \"weaknesses\": [string], \"suggestions\": [{\"id\": string, \"title\": string, \"description\": string, \"category\": string, \"priority\": \"high\"|\"medium\"|\"low\"}]}. id atsChecks HARUS persis: keyword, skills, sections, formatting, quantified, readability. Gunakan bahasa Indonesia untuk semua teks."
+                                                                           },
+                                                                           {
+                                                                               "role":  "user",
+                                                                               "content":  "={{ ($json.choices?.[0]?.finish_reason ?? \"\") === \"length\" \u0026\u0026 ($json.choices?.[0]?.message?.content ?? \"\").trim().length \u003e 0 ? \"Model sebelumnya terpotong oleh batas token. LANJUTKAN dari output parsial berikut dan LENGKAPI menjadi hasil akhir yang valid sesuai instruksi system prompt. JANGAN mulai dari awal; kerjakan hanya bagian yang belum selesai.\\n\\n=== OUTPUT PARSIAL MODEL SEBELUMNYA ===\\n\" + $json.choices[0].message.content + \"\\n\\n=== KONTEKS (dipakai untuk melengkapi) ===\\nCV:\\n\" + $(\"Normalize Input\").item.json.cvText + \"\\n\\nDeskripsi Pekerjaan (JD):\\n\" + $(\"Normalize Input\").item.json.targetJobDescription : \"CV:\\n\" + $(\"Normalize Input\").item.json.cvText + \"\\n\\nDeskripsi Pekerjaan (JD):\\n\" + $(\"Normalize Input\").item.json.targetJobDescription }}"
+                                                                           }
+                                                                       ],
+                                                          "temperature":  0.2,
+                                                          "max_tokens":  2048
+                                                      },
+                                         "options":  {
+                                                         "timeout":  60000
+                                                     }
+                                     },
+                      "onError":  "continueErrorOutput",
+                      "credentials":  {
+                                          "openRouterApi":  {
+                                                                "id":  "DNXYjrGmURVEVg05",
+                                                                "name":  "OpenRouter account"
+                                                            }
+                                      }
+                  },
+                  {
+                      "id":  "258abed8-a8de-4a08-bf69-72270adad8cf",
+                      "name":  "Analyze Valid Model 1",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       880,
+                                       300
+                                   ],
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "combinator":  "and",
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "leftValue":  "={{ !$json.error }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length \u003e 0 }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               }
+                                                                           ],
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "loose"
+                                                                        }
+                                                        }
+                                     }
+                  },
+                  {
+                      "id":  "06bb2f64-63f2-4148-abfb-35aa9f0c9d1c",
+                      "name":  "Analyze Valid Model 2",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       880,
+                                       480
+                                   ],
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "combinator":  "and",
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "leftValue":  "={{ !$json.error }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length \u003e 0 }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               }
+                                                                           ],
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "loose"
+                                                                        }
+                                                        }
+                                     }
+                  },
+                  {
+                      "id":  "5c6a4b78-9541-4f94-b4bd-df7d87cff12f",
+                      "name":  "Analyze Valid Model 3",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       880,
+                                       660
+                                   ],
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "combinator":  "and",
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "leftValue":  "={{ !$json.error }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length \u003e 0 }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               }
+                                                                           ],
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "loose"
+                                                                        }
+                                                        }
+                                     }
+                  },
+                  {
+                      "id":  "de036aca-bc66-4cd0-a62a-3534acaf85d6",
+                      "name":  "Analyze Valid Model 4",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       880,
+                                       840
+                                   ],
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "combinator":  "and",
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "leftValue":  "={{ !$json.error }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.choices?.[0]?.message?.content ?? \"\").trim().length \u003e 0 }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               },
+                                                                               {
+                                                                                   "leftValue":  "={{ ($json.choices?.[0]?.finish_reason ?? \"stop\") !== \"length\" }}",
+                                                                                   "operator":  {
+                                                                                                    "operation":  "equals",
+                                                                                                    "type":  "boolean"
+                                                                                                },
+                                                                                   "rightValue":  true
+                                                                               }
+                                                                           ],
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "loose"
+                                                                        }
+                                                        }
+                                     }
+                  }
+              ],
+    "connections":  {
+                        "CV Analyze Webhook":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Normalize Input",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               },
+                        "Normalize Input":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Analyze - Model 1",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Analyze - Model 1":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Analyze Valid Model 1",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+                                                                   {
+                                                                       "node":  "Analyze - Model 2",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Analyze - Model 2":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Analyze Valid Model 2",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+                                                                   {
+                                                                       "node":  "Analyze - Model 3",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Analyze - Model 3":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Analyze Valid Model 3",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+                                                                   {
+                                                                       "node":  "Analyze - Model 4",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Analyze - Model 4":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Analyze Valid Model 4",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+                                                                   {
+                                                                       "node":  "Analyze - Model 5",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Analyze - Model 5":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Format Output",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Analyze Valid Model 1":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Format Output",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ],
+                                                                   [
+                                                                       {
+                                                                           "node":  "Analyze - Model 2",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Analyze Valid Model 2":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Format Output",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ],
+                                                                   [
+                                                                       {
+                                                                           "node":  "Analyze - Model 3",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Analyze Valid Model 3":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Format Output",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ],
+                                                                   [
+                                                                       {
+                                                                           "node":  "Analyze - Model 4",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Analyze Valid Model 4":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Format Output",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ],
+                                                                   [
+                                                                       {
+                                                                           "node":  "Analyze - Model 5",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "availableInMCP":  true
+                 }
 }

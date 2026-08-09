@@ -62,6 +62,22 @@ const rewriteUserMessage = expr(
   'Hasil analisis awal (untuk panduan perbaikan):\n{{ $("Normalize Input").item.json.analyzeContext }}'
 )
 
+// Phase 10 (FAILOVER-CONTINUE): when the previous model hit finish_reason "length",
+// continue its partial output instead of starting the rewrite from scratch.
+const rewriteContinueUserMessage = expr(
+  '{{ ($json.choices?.[0]?.finish_reason ?? "") === "length" && ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 ' +
+  '? "Model sebelumnya terpotong oleh batas token. LANJUTKAN penulisan CV dari output parsial berikut dan SELESAIKAN menjadi markdown CV ATS lengkap sesuai instruksi system prompt. JANGAN mulai dari awal; pertahankan bagian yang sudah ditulis, kerjakan hanya sisa yang belum selesai.\\n\\n=== OUTPUT PARSIAL MODEL SEBELUMNYA ===\\n" + $json.choices[0].message.content ' +
+  '+ "\\n\\n=== KONTEKS (dipakai untuk melengkapi) ===\\nCV asli:\\n" + $("Normalize Input").item.json.originalCv ' +
+  '+ "\\n\\nDeskripsi pekerjaan (JD):\\n" + $("Normalize Input").item.json.targetJobDescription ' +
+  '+ "\\n\\nSaran yang disetujui:\\n" + JSON.stringify($("Normalize Input").item.json.approvedSuggestions) ' +
+  '+ "\\n\\nInstruksi format:\\n" + $("Normalize Input").item.json.rewriteFormatInstruction ' +
+  '+ "\\n\\nHasil analisis awal (untuk panduan perbaikan):\\n" + $("Normalize Input").item.json.analyzeContext ' +
+  ': "CV asli:\\n" + $("Normalize Input").item.json.originalCv + "\\n\\nDeskripsi pekerjaan (JD):\\n" + $("Normalize Input").item.json.targetJobDescription ' +
+  '+ "\\n\\nSaran yang disetujui:\\n" + JSON.stringify($("Normalize Input").item.json.approvedSuggestions) ' +
+  '+ "\\n\\nInstruksi format:\\n" + $("Normalize Input").item.json.rewriteFormatInstruction ' +
+  '+ "\\n\\nHasil analisis awal (untuk panduan perbaikan):\\n" + $("Normalize Input").item.json.analyzeContext }}'
+)
+
 const rewriteM1 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
@@ -110,7 +126,7 @@ const rewriteM2 = node({
         model: 'nvidia/nemotron-3-super-120b-a12b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: rewriteUserMessage },
+          { role: 'user', content: rewriteContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -140,7 +156,7 @@ const rewriteM3 = node({
         model: 'nvidia/nemotron-3-nano-30b-a3b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: rewriteUserMessage },
+          { role: 'user', content: rewriteContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -170,7 +186,7 @@ const rewriteM4 = node({
         model: 'google/gemma-4-31b-it:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: rewriteUserMessage },
+          { role: 'user', content: rewriteContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -182,9 +198,9 @@ const rewriteM4 = node({
   },
 })
 
-// tradeoff (CR-18 INFO): Rewrite Model 5 adalah model terakhir — tanpa If-node
-// validasi. Jika seluruh rantai gagal, Capture Rewrite menerima output kosong dan
-// backend melaporkan error kontrak generik. Diterima sebagai desain last-resort.
+// tradeoff (CR-18 INFO): Rewrite Model 5 is the terminal model — no validation
+// If-node. If the whole chain fails, Capture Rewrite receives empty output and
+// the backend reports a generic contract error. Accepted as a last-resort design.
 const rewriteM5 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
@@ -203,7 +219,7 @@ const rewriteM5 = node({
         model: 'openai/gpt-oss-20b:free',
         messages: [
           { role: 'system', content: rewriteSystemPrompt },
-          { role: 'user', content: rewriteUserMessage },
+          { role: 'user', content: rewriteContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -211,9 +227,9 @@ const rewriteM5 = node({
       options: { timeout: 60000 },
     },
     onError: 'continueErrorOutput',
-    // CR-24 INFO: credential ID di bawah terikat ke instance n8n lokal (id dari
-    // credential store). Saat import ke instance lain, konek ulang kredensial
-    // OpenRouter di setiap node HTTP (lihat README).
+    // CR-24 INFO: the credential ID below is bound to the local n8n instance (id from
+    // the credential store). When importing to another instance, reconnect the
+    // OpenRouter credential on every HTTP node (see README).
     credentials: { openRouterApi: { id: 'DNXYjrGmURVEVg05', name: 'OpenRouter account' } },
   },
 })
@@ -257,6 +273,24 @@ const postCheckSystemPrompt =
   '{"postScore": number 0-100, "warnings": [string]} ' +
   'untuk setiap fakta yang hilang/berubah ATAU pelanggaran format. Gunakan bahasa Indonesia.'
 
+const postCheckUserMessage = expr(
+  'CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\n' +
+  'CV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\n' +
+  'Deskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}'
+)
+
+// Phase 10 (FAILOVER-CONTINUE): continue a partial post-check output on token
+// limit, instead of starting the post-check from scratch.
+const postCheckContinueUserMessage = expr(
+  '{{ ($json.choices?.[0]?.finish_reason ?? "") === "length" && ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 ' +
+  '? "Model sebelumnya terpotong oleh batas token. LANJUTKAN dari output parsial berikut dan LENGKAPI menjadi JSON valid sesuai instruksi system prompt. JANGAN mulai dari awal; kerjakan hanya sisa yang belum selesai.\\n\\n=== OUTPUT PARSIAL MODEL SEBELUMNYA ===\\n" + $json.choices[0].message.content ' +
+  '+ "\\n\\n=== KONTEKS (dipakai untuk melengkapi) ===\\nCV asli:\\n" + $("Capture Rewrite").item.json.originalCv ' +
+  '+ "\\n\\nCV hasil tulis ulang:\\n" + $("Capture Rewrite").item.json.raw ' +
+  '+ "\\n\\nDeskripsi pekerjaan:\\n" + $("Capture Rewrite").item.json.targetJobDescription ' +
+  ': "CV asli:\\n" + $("Capture Rewrite").item.json.originalCv + "\\n\\nCV hasil tulis ulang:\\n" + $("Capture Rewrite").item.json.raw ' +
+  '+ "\\n\\nDeskripsi pekerjaan:\\n" + $("Capture Rewrite").item.json.targetJobDescription }}'
+)
+
 const postM1 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
@@ -275,7 +309,7 @@ const postM1 = node({
         model: 'google/gemma-4-31b-it:free',
         messages: [
           { role: 'system', content: postCheckSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
+          { role: 'user', content: postCheckUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -306,7 +340,7 @@ const postM2 = node({
         model: 'openai/gpt-oss-20b:free',
         messages: [
           { role: 'system', content: postCheckSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
+          { role: 'user', content: postCheckContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -337,7 +371,7 @@ const postM3 = node({
         model: 'nvidia/nemotron-3-super-120b-a12b:free',
         messages: [
           { role: 'system', content: postCheckSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
+          { role: 'user', content: postCheckContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -368,7 +402,7 @@ const postM4 = node({
         model: 'nvidia/nemotron-3-nano-30b-a3b:free',
         messages: [
           { role: 'system', content: postCheckSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
+          { role: 'user', content: postCheckContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -381,9 +415,9 @@ const postM4 = node({
   },
 })
 
-// tradeoff (CR-18 INFO): Post-Check Model 5 adalah model terakhir — tanpa If-node
-// validasi. Jika seluruh rantai post-check gagal, Format Output menerima output
-// kosong dan backend melaporkan error kontrak generik. Diterima sebagai desain last-resort.
+// tradeoff (CR-18 INFO): Post-Check Model 5 is the terminal model — no validation
+// If-node. If the whole post-check chain fails, Format Output receives empty output
+// and the backend reports a generic contract error. Accepted as a last-resort design.
 const postM5 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
@@ -402,7 +436,7 @@ const postM5 = node({
         model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
         messages: [
           { role: 'system', content: postCheckSystemPrompt },
-          { role: 'user', content: expr('CV asli:\n{{ $("Capture Rewrite").item.json.originalCv }}\n\nCV hasil tulis ulang:\n{{ $("Capture Rewrite").item.json.raw }}\n\nDeskripsi pekerjaan:\n{{ $("Capture Rewrite").item.json.targetJobDescription }}') },
+          { role: 'user', content: postCheckContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -415,9 +449,9 @@ const postM5 = node({
   },
 })
 
-// Catatan (CR-08): blok validasi di bawah sengaja diduplikasi per model, karena
-// parser n8n Workflow SDK menolak function/arrow function — satu-satunya cara
-// valid adalah deklarasi ifElse inline per model (kendala DSL deklaratif SDK).
+// Note (CR-08): the validation blocks below are intentionally duplicated per model,
+// because the n8n Workflow SDK parser rejects function/arrow functions — the only
+// valid way is an inline ifElse declaration per model (declarative SDK-DSL constraint).
 
 const rewriteValidM1 = ifElse({
   version: 2.3,
