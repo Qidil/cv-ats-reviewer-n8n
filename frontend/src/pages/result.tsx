@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Download, FileDown, FileText } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Download } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -81,20 +81,6 @@ export default function ResultPage() {
             Model post-check: {rewrite.postModelUsed ?? '—'}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <a href={api.getExportUrl(rewrite.id, 'pdf')} download>
-              <FileDown aria-hidden="true" />
-              PDF
-            </a>
-          </Button>
-          <Button asChild variant="outline">
-            <a href={api.getExportUrl(rewrite.id, 'docx')} download>
-              <FileText aria-hidden="true" />
-              DOCX
-            </a>
-          </Button>
-        </div>
       </div>
 
       {postScore !== null && zone !== null && (
@@ -145,31 +131,30 @@ export default function ResultPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>CV Tertulis Ulang</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle2 className="size-5 text-emerald-600" aria-hidden="true" />
+            Rewrite berhasil
+          </CardTitle>
+          <CardDescription>
+            CV telah ditulis ulang sesuai format yang dipilih. Unduh hasilnya dalam
+            format PDF atau DOCX.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="max-h-[32rem] overflow-y-auto rounded-lg border border-border bg-muted/50 p-4">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-              {rewrite.rewrittenMarkdown}
-            </pre>
-          </div>
+        <CardContent className="flex flex-wrap justify-end gap-2">
+          <Button asChild variant="outline">
+            <a href={api.getExportUrl(rewrite.id, 'pdf')} download>
+              <Download aria-hidden="true" />
+              Unduh PDF
+            </a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href={api.getExportUrl(rewrite.id, 'docx')} download>
+              <Download aria-hidden="true" />
+              Unduh DOCX
+            </a>
+          </Button>
         </CardContent>
       </Card>
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button asChild variant="outline">
-          <a href={api.getExportUrl(rewrite.id, 'pdf')} download>
-            <Download aria-hidden="true" />
-            Unduh PDF
-          </a>
-        </Button>
-        <Button asChild variant="outline">
-          <a href={api.getExportUrl(rewrite.id, 'docx')} download>
-            <Download aria-hidden="true" />
-            Unduh DOCX
-          </a>
-        </Button>
-      </div>
     </main>
   )
 }
