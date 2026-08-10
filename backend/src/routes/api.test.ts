@@ -148,7 +148,7 @@ describe('GET /api/cvs', () => {
 
 describe('POST /api/cvs/:cvId/analyze', () => {
   it('returns 200 with the composed report', async () => {
-    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW })
+    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW, finishReason: 'stop' })
     const cvId = await uploadCv()
     const res = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
     expect(res.status).toBe(200)
@@ -178,16 +178,32 @@ describe('POST /api/cvs/:cvId/analyze', () => {
   })
 
   it('returns 502 when the model output cannot be parsed', async () => {
-    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: 'tidak ada json' })
+    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: 'tidak ada json', finishReason: 'stop' })
     const cvId = await uploadCv()
     const res = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
     expect(res.status).toBe(502)
+  })
+
+  it('returns 502 with a specific message when the model runs out of tokens (ERROR-01)', async () => {
+    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: '', finishReason: 'length' })
+    const cvId = await uploadCv()
+    const res = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
+    expect(res.status).toBe(502)
+    expect(res.body.error).toContain('kehabisan token')
+  })
+
+  it('returns 502 with a fallback message when the output is empty', async () => {
+    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: '', finishReason: 'stop' })
+    const cvId = await uploadCv()
+    const res = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
+    expect(res.status).toBe(502)
+    expect(res.body.error).toContain('Semua model AI gagal')
   })
 })
 
 describe('GET /api/reviews/:reviewId', () => {
   it('returns 200 with approvalId/rewriteId null', async () => {
-    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW })
+    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW, finishReason: 'stop' })
     const cvId = await uploadCv()
     const analyze = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
     const reviewId = analyze.body.id as number
@@ -207,7 +223,7 @@ describe('GET /api/reviews/:reviewId', () => {
 
 describe('POST /api/reviews/:reviewId/approve', () => {
   async function createReview(): Promise<number> {
-    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW })
+    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW, finishReason: 'stop' })
     const cvId = await uploadCv()
     const analyze = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
     return analyze.body.id as number
@@ -260,7 +276,7 @@ describe('GET /api/approvals/:approvalId', () => {
 
 describe('GET /api/rewrites/:rewriteId', () => {
   it('returns 200 with a stored rewrite', async () => {
-    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW })
+    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW, finishReason: 'stop' })
     const cvId = await uploadCv()
     const analyze = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
     const reviewId = analyze.body.id as number

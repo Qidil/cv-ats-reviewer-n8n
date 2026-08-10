@@ -16,6 +16,7 @@ import {
 import { buildAnalyzeContext, composeRewrite } from '../services/rewrite.js'
 import { exportRewrite } from '../services/export.js'
 import { parseId } from '../utils/route-id.js'
+import { describeRewriteFailure } from '../utils/model-parser.js'
 
 const REWRITE_FORMATS: readonly RewriteFormat[] = [
   'chronological',
@@ -81,6 +82,10 @@ export function createRewritesRouter(db: DatabaseSync): Router {
     }
 
     const composed = composeRewrite(result)
+    if (composed.rewrittenMarkdown.trim().length === 0) {
+      res.status(502).json({ error: describeRewriteFailure(result.finishReason) })
+      return
+    }
     const rewriteId = insertRewrite(db, {
       reviewId: review.id,
       approvalId,

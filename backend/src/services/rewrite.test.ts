@@ -7,8 +7,10 @@ function baseResult(overrides: Partial<RewriteResult> = {}): RewriteResult {
   return {
     model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
     raw: '# Budi\n\n## Pengalaman Kerja\n- Backend Developer (2021-2024)',
+    finishReason: 'stop',
     postCheckModel: 'nvidia/nemotron-3-nano-30b-a3b:free',
     postCheckRaw: '{"postScore":84,"warnings":[]}',
+    postCheckFinishReason: 'stop',
     ...overrides,
   }
 }

@@ -119,6 +119,12 @@
                                                                                      "name":  "raw",
                                                                                      "value":  "={{ $json.choices?.[0]?.message?.content ?? \"\" }}",
                                                                                      "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "finish-reason",
+                                                                                     "name":  "finishReason",
+                                                                                     "value":  "={{ $json.choices?.[0]?.finish_reason ?? \"\" }}",
+                                                                                     "type":  "string"
                                                                                  }
                                                                              ]
                                                          }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseAnalyzeReport, ModelParseError } from './model-parser.js'
+import {
+  parseAnalyzeReport,
+  ModelParseError,
+  describeAnalyzeFailure,
+  describeRewriteFailure,
+} from './model-parser.js'
 
 const VALID_REPORT = {
   overallScore: 72.5,
@@ -69,5 +74,42 @@ describe('parseAnalyzeReport', () => {
   it('returns null overallScore when the model provides none', () => {
     const parsed = parseAnalyzeReport(JSON.stringify({ ...VALID_REPORT, overallScore: undefined }))
     expect(parsed.overallScore).toBeNull()
+  })
+})
+
+describe('describeAnalyzeFailure', () => {
+  it('explains a token-limit finish reason', () => {
+    const msg = describeAnalyzeFailure('', 'length')
+    expect(msg).toContain('kehabisan token')
+    expect(msg).toContain('model berbayar')
+  })
+
+  it('explains empty output from every model', () => {
+    const msg = describeAnalyzeFailure('', 'stop')
+    expect(msg).toContain('Semua model AI gagal')
+  })
+
+  it('explains unparseable output', () => {
+    const msg = describeAnalyzeFailure('teks tanpa json', 'stop')
+    expect(msg).toContain('tidak sesuai format')
+  })
+
+  it('treats a missing finish reason as a generic failure', () => {
+    const msg = describeAnalyzeFailure('teks tanpa json', null)
+    expect(msg).toContain('tidak sesuai format')
+  })
+})
+
+describe('describeRewriteFailure', () => {
+  it('explains a token-limit finish reason', () => {
+    expect(describeRewriteFailure('length')).toContain('kehabisan token')
+  })
+
+  it('explains a generic failure', () => {
+    expect(describeRewriteFailure('stop')).toContain('gagal menulis ulang')
+  })
+
+  it('handles a missing finish reason', () => {
+    expect(describeRewriteFailure(null)).toContain('gagal menulis ulang')
   })
 })

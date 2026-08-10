@@ -14,6 +14,27 @@ export class ModelParseError extends Error {
   }
 }
 
+// ERROR-01: pesan error spesifik saat rantai failover gagal, dibedakan dari
+// finish_reason model terakhir yang dilaporkan webhook n8n ("length" = token
+// limit) agar UI tidak menampilkan pesan generik "Model output kosong."
+export function describeAnalyzeFailure(raw: string, finishReason: string | null): string {
+  const empty = typeof raw !== 'string' || raw.trim().length === 0
+  if (finishReason === 'length') {
+    return 'Model AI terakhir kehabisan token saat menulis respons (batas token tercapai). Coba lagi nanti atau gunakan model berbayar.'
+  }
+  if (empty) {
+    return 'Semua model AI gagal menghasilkan output (kemungkinan rate limit/error). Coba lagi nanti atau gunakan model berbayar.'
+  }
+  return 'Output model tidak sesuai format yang diharapkan. Coba lagi nanti.'
+}
+
+export function describeRewriteFailure(finishReason: string | null): string {
+  if (finishReason === 'length') {
+    return 'Model AI terakhir kehabisan token saat menulis ulang CV (batas token tercapai). Coba lagi nanti atau gunakan model berbayar.'
+  }
+  return 'Semua model AI gagal menulis ulang CV (kemungkinan rate limit/error). Coba lagi nanti atau gunakan model berbayar.'
+}
+
 function clampScore(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0
   return Math.min(100, Math.max(0, value))

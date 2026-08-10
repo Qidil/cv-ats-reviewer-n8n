@@ -4,7 +4,7 @@ import { PDFParse } from 'pdf-parse'
 import type { DatabaseSync } from 'node:sqlite'
 import { analyzeCv as deterministicAnalyze, composeReport } from '../services/ats.js'
 import { analyzeCv as proxyAnalyze, N8nProxyError } from '../services/n8n-proxy.js'
-import { parseAnalyzeReport, ModelParseError } from '../utils/model-parser.js'
+import { parseAnalyzeReport, ModelParseError, describeAnalyzeFailure } from '../utils/model-parser.js'
 import { parseId } from '../utils/route-id.js'
 import {
   getCvById,
@@ -94,6 +94,7 @@ export function createCvsRouter(db: DatabaseSync): Router {
 
     let model: string
     let raw: string
+    let finishReason: string | null
     try {
       const proxyResult = await proxyAnalyze({
         cvId,
@@ -102,6 +103,7 @@ export function createCvsRouter(db: DatabaseSync): Router {
       })
       model = proxyResult.model
       raw = proxyResult.raw
+      finishReason = proxyResult.finishReason
     } catch (error) {
       if (error instanceof N8nProxyError) {
         res.status(502).json({ error: error.message })
@@ -115,7 +117,7 @@ export function createCvsRouter(db: DatabaseSync): Router {
       parsed = parseAnalyzeReport(raw)
     } catch (error) {
       if (error instanceof ModelParseError) {
-        res.status(502).json({ error: error.message })
+        res.status(502).json({ error: describeAnalyzeFailure(raw, finishReason) })
         return
       }
       throw error

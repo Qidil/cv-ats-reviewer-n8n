@@ -10,6 +10,9 @@ export interface AnalyzePayload {
 export type AnalyzeResult = {
   model: string
   raw: string
+  // ERROR-01: finish_reason model terakhir (mis. "length") agar backend dapat
+  // melaporkan error spesifik saat model kehabisan token.
+  finishReason: string | null
 }
 
 export type RewriteFormat = 'chronological' | 'combination' | 'functional'
@@ -26,8 +29,10 @@ export interface RewritePayload {
 export type RewriteResult = {
   model: string
   raw: string
+  finishReason: string | null
   postCheckModel: string | null
   postCheckRaw: string | null
+  postCheckFinishReason: string | null
 }
 
 export class N8nProxyError extends Error {
@@ -56,9 +61,17 @@ export async function analyzeCv(payload: AnalyzePayload): Promise<AnalyzeResult>
     process.env.N8N_ANALYZE_PATH ?? 'cv-analyze',
     payload,
     (data): data is AnalyzeResult =>
-      typeof data.model === 'string' && typeof data.raw === 'string',
+      typeof data.model === 'string' &&
+      typeof data.raw === 'string' &&
+      (data.finishReason === undefined ||
+        data.finishReason === null ||
+        typeof data.finishReason === 'string'),
   )
-  return { model: data.model, raw: data.raw }
+  return {
+    model: data.model,
+    raw: data.raw,
+    finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
+  }
 }
 
 export async function rewriteCv(payload: RewritePayload): Promise<RewriteResult> {
@@ -68,18 +81,27 @@ export async function rewriteCv(payload: RewritePayload): Promise<RewriteResult>
     (data): data is RewriteResult =>
       typeof data.model === 'string' &&
       typeof data.raw === 'string' &&
+      (data.finishReason === undefined ||
+        data.finishReason === null ||
+        typeof data.finishReason === 'string') &&
       (data.postCheckModel === undefined ||
         data.postCheckModel === null ||
         typeof data.postCheckModel === 'string') &&
       (data.postCheckRaw === undefined ||
         data.postCheckRaw === null ||
-        typeof data.postCheckRaw === 'string'),
+        typeof data.postCheckRaw === 'string') &&
+      (data.postCheckFinishReason === undefined ||
+        data.postCheckFinishReason === null ||
+        typeof data.postCheckFinishReason === 'string'),
   )
   return {
     model: data.model,
     raw: data.raw,
+    finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
     postCheckModel: data.postCheckModel ?? null,
     postCheckRaw: data.postCheckRaw ?? null,
+    postCheckFinishReason:
+      typeof data.postCheckFinishReason === 'string' ? data.postCheckFinishReason : null,
   }
 }
 

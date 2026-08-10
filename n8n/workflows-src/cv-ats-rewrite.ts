@@ -246,6 +246,7 @@ const captureRewrite = node({
         assignments: [
           { id: 'model', name: 'model', value: expr('{{ $json.model }}'), type: 'string' },
           { id: 'raw', name: 'raw', value: expr('{{ $json.choices?.[0]?.message?.content ?? "" }}'), type: 'string' },
+          { id: 'finish-reason', name: 'finishReason', value: expr('{{ $json.choices?.[0]?.finish_reason ?? "" }}'), type: 'string' },
           { id: 'orig', name: 'originalCv', value: expr('{{ $("Normalize Input").item.json.originalCv }}'), type: 'string' },
           { id: 'jd', name: 'targetJobDescription', value: expr('{{ $("Normalize Input").item.json.targetJobDescription }}'), type: 'string' },
           { id: 'sug', name: 'approvedSuggestions', value: expr('{{ $("Normalize Input").item.json.approvedSuggestions }}'), type: 'array' },
@@ -616,8 +617,10 @@ const formatOutput = node({
         assignments: [
           { id: 'model', name: 'model', value: expr('{{ $("Capture Rewrite").item.json.model }}'), type: 'string' },
           { id: 'raw', name: 'raw', value: expr('{{ $("Capture Rewrite").item.json.raw }}'), type: 'string' },
+          { id: 'finish-reason', name: 'finishReason', value: expr('{{ $("Capture Rewrite").item.json.finishReason }}'), type: 'string' },
           { id: 'post-model', name: 'postCheckModel', value: expr('{{ $json.model }}'), type: 'string' },
           { id: 'post-raw', name: 'postCheckRaw', value: expr('{{ $json.choices?.[0]?.message?.content ?? "" }}'), type: 'string' },
+          { id: 'post-finish-reason', name: 'postCheckFinishReason', value: expr('{{ $json.choices?.[0]?.finish_reason ?? "" }}'), type: 'string' },
         ],
       },
     },

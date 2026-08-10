@@ -76,7 +76,7 @@ afterEach(() => {
 })
 
 async function createApproval(description = 'Backend Engineer at TechCo'): Promise<number> {
-  vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW })
+  vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW, finishReason: 'stop' })
   const upload = await request(createApp(db))
     .post('/api/cvs')
     .attach('cv', makePdf('Budi Sudirman Skills: node, typescript Experience: Backend 2021-2024'), {
@@ -99,8 +99,10 @@ describe('POST /api/approvals/:approvalId/rewrite', () => {
     vi.mocked(mockRewriteCv).mockResolvedValue({
       model: 'nvidia/rewrite:free',
       raw: '# Budi\n\n## Pengalaman Kerja\n- Backend Developer (2021-2024)',
+      finishReason: 'stop',
       postCheckModel: 'nvidia/post:free',
       postCheckRaw: '{"postScore":80,"warnings":[]}',
+      postCheckFinishReason: 'stop',
     })
     const approvalId = await createApproval()
 
@@ -130,8 +132,10 @@ describe('POST /api/approvals/:approvalId/rewrite', () => {
     vi.mocked(mockRewriteCv).mockResolvedValue({
       model: 'nvidia/rewrite:free',
       raw: '# Budi',
+      finishReason: 'stop',
       postCheckModel: null,
       postCheckRaw: null,
+      postCheckFinishReason: null,
     })
     const approvalId = await createApproval()
     await request(createApp(db))
@@ -146,8 +150,10 @@ describe('POST /api/approvals/:approvalId/rewrite', () => {
     vi.mocked(mockRewriteCv).mockResolvedValue({
       model: 'nvidia/rewrite:free',
       raw: '# Budi',
+      finishReason: 'stop',
       postCheckModel: null,
       postCheckRaw: null,
+      postCheckFinishReason: null,
     })
     const approvalId = await createApproval()
     await request(createApp(db))
@@ -162,8 +168,10 @@ describe('POST /api/approvals/:approvalId/rewrite', () => {
     vi.mocked(mockRewriteCv).mockResolvedValue({
       model: 'nvidia/rewrite:free',
       raw: '# Budi',
+      finishReason: 'stop',
       postCheckModel: null,
       postCheckRaw: null,
+      postCheckFinishReason: null,
     })
     const approvalId = await createApproval()
     await request(createApp(db)).post(`/api/approvals/${approvalId}/rewrite`)
@@ -176,8 +184,10 @@ describe('POST /api/approvals/:approvalId/rewrite', () => {
     vi.mocked(mockRewriteCv).mockResolvedValue({
       model: 'nvidia/rewrite:free',
       raw: '# Budi',
+      finishReason: 'stop',
       postCheckModel: null,
       postCheckRaw: null,
+      postCheckFinishReason: null,
     })
     const approvalId = await createApproval()
     const res = await request(createApp(db)).post(`/api/approvals/${approvalId}/rewrite`)
@@ -193,6 +203,36 @@ describe('POST /api/approvals/:approvalId/rewrite', () => {
     expect(res.status).toBe(502)
   })
 
+  it('returns 502 with a specific message when the rewrite model runs out of tokens (ERROR-01)', async () => {
+    vi.mocked(mockRewriteCv).mockResolvedValue({
+      model: 'nvidia/rewrite:free',
+      raw: '',
+      finishReason: 'length',
+      postCheckModel: null,
+      postCheckRaw: null,
+      postCheckFinishReason: null,
+    })
+    const approvalId = await createApproval()
+    const res = await request(createApp(db)).post(`/api/approvals/${approvalId}/rewrite`)
+    expect(res.status).toBe(502)
+    expect(res.body.error).toContain('kehabisan token')
+  })
+
+  it('returns 502 with a fallback message when the rewrite output is empty', async () => {
+    vi.mocked(mockRewriteCv).mockResolvedValue({
+      model: 'nvidia/rewrite:free',
+      raw: '',
+      finishReason: 'stop',
+      postCheckModel: null,
+      postCheckRaw: null,
+      postCheckFinishReason: null,
+    })
+    const approvalId = await createApproval()
+    const res = await request(createApp(db)).post(`/api/approvals/${approvalId}/rewrite`)
+    expect(res.status).toBe(502)
+    expect(res.body.error).toContain('gagal menulis ulang')
+  })
+
   it('returns 404 for an unknown approval', async () => {
     const res = await request(createApp(db)).post('/api/approvals/999/rewrite')
     expect(res.status).toBe(404)
@@ -204,8 +244,10 @@ describe('GET /api/rewrites/:rewriteId/export', () => {
     vi.mocked(mockRewriteCv).mockResolvedValue({
       model: 'nvidia/rewrite:free',
       raw: '# Budi',
+      finishReason: 'stop',
       postCheckModel: null,
       postCheckRaw: null,
+      postCheckFinishReason: null,
     })
     const approvalId = await createApproval()
     const res = await request(createApp(db)).post(`/api/approvals/${approvalId}/rewrite`)

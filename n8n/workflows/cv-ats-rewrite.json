@@ -146,6 +146,12 @@
                                                                                      "type":  "string"
                                                                                  },
                                                                                  {
+                                                                                     "id":  "finish-reason",
+                                                                                     "name":  "finishReason",
+                                                                                     "value":  "={{ $json.choices?.[0]?.finish_reason ?? \"\" }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
                                                                                      "id":  "orig",
                                                                                      "name":  "originalCv",
                                                                                      "value":  "={{ $(\"Normalize Input\").item.json.originalCv }}",
@@ -416,6 +422,12 @@
                                                                                      "type":  "string"
                                                                                  },
                                                                                  {
+                                                                                     "id":  "finish-reason",
+                                                                                     "name":  "finishReason",
+                                                                                     "value":  "={{ $(\"Capture Rewrite\").item.json.finishReason }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
                                                                                      "id":  "post-model",
                                                                                      "name":  "postCheckModel",
                                                                                      "value":  "={{ $json.model }}",
@@ -425,6 +437,12 @@
                                                                                      "id":  "post-raw",
                                                                                      "name":  "postCheckRaw",
                                                                                      "value":  "={{ $json.choices?.[0]?.message?.content ?? \"\" }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "post-finish-reason",
+                                                                                     "name":  "postCheckFinishReason",
+                                                                                     "value":  "={{ $json.choices?.[0]?.finish_reason ?? \"\" }}",
                                                                                      "type":  "string"
                                                                                  }
                                                                              ]

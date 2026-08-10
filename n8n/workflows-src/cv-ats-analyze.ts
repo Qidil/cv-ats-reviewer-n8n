@@ -330,6 +330,7 @@ const formatOutput = node({
         assignments: [
           { id: 'model', name: 'model', value: expr('{{ $json.model }}'), type: 'string' },
           { id: 'raw', name: 'raw', value: expr('{{ $json.choices?.[0]?.message?.content ?? "" }}'), type: 'string' },
+          { id: 'finish-reason', name: 'finishReason', value: expr('{{ $json.choices?.[0]?.finish_reason ?? "" }}'), type: 'string' },
         ],
       },
     },
