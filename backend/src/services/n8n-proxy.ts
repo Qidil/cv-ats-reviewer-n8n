@@ -15,6 +15,17 @@ export type AnalyzeResult = {
   finishReason: string | null
 }
 
+export interface MatchJobsPayload {
+  cvId: number
+  cvText: string
+}
+
+export type MatchJobsResult = {
+  model: string
+  raw: string
+  finishReason: string | null
+}
+
 export type RewriteFormat = 'chronological' | 'combination' | 'functional'
 
 export interface RewritePayload {
@@ -61,6 +72,24 @@ export async function analyzeCv(payload: AnalyzePayload): Promise<AnalyzeResult>
     process.env.N8N_ANALYZE_PATH ?? 'cv-analyze',
     payload,
     (data): data is AnalyzeResult =>
+      typeof data.model === 'string' &&
+      typeof data.raw === 'string' &&
+      (data.finishReason === undefined ||
+        data.finishReason === null ||
+        typeof data.finishReason === 'string'),
+  )
+  return {
+    model: data.model,
+    raw: data.raw,
+    finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
+  }
+}
+
+export async function matchJobs(payload: MatchJobsPayload): Promise<MatchJobsResult> {
+  const data = await postWebhook<MatchJobsResult>(
+    process.env.N8N_JOBS_PATH ?? 'cv-jobs',
+    payload,
+    (data): data is MatchJobsResult =>
       typeof data.model === 'string' &&
       typeof data.raw === 'string' &&
       (data.finishReason === undefined ||

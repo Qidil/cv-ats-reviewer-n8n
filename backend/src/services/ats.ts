@@ -173,6 +173,9 @@ function buildContext(cv: string, jd: string): CheckContext {
 
 function checkKeyword(ctx: CheckContext): AtsCheck {
   if (ctx.allKeywords.length === 0) {
+    if (ctx.jdLower.trim().length === 0) {
+      return { id: 'keyword', name: 'Keyword match', status: 'warn', score: 0, detail: 'Tanpa deskripsi pekerjaan (Mode B), relevansi kata kunci dinilai oleh model.' }
+    }
     return { id: 'keyword', name: 'Keyword match', status: 'fail', score: 0, detail: 'Deskripsi pekerjaan terlalu pendek untuk diekstrak kata kunci.' }
   }
   const matched = ctx.allKeywords.filter((keyword) => hasKeyword(ctx.cvLower, keyword))
@@ -195,6 +198,9 @@ function checkSkills(ctx: CheckContext): AtsCheck {
   const skillsLower = ctx.skillsText
   if (!ctx.sections.skills || skillsLower.trim().length === 0) {
     return { id: 'skills', name: 'Skills coverage', status: 'fail', score: 0, detail: 'Tidak ditemukan bagian Skills pada CV.' }
+  }
+  if (ctx.allKeywords.length === 0) {
+    return { id: 'skills', name: 'Skills coverage', status: 'warn', score: 0, detail: 'Tanpa deskripsi pekerjaan (Mode B), cakupan skills dinilai oleh model.' }
   }
   const matched = ctx.allKeywords.filter((keyword) => hasKeyword(skillsLower, keyword))
   const missing = ctx.allKeywords.filter((keyword) => !matched.includes(keyword))

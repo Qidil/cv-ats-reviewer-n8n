@@ -4,6 +4,8 @@ import type {
   ApiError,
   CvListItem,
   ExportFormat,
+  JobMatch,
+  JobsReport,
   ReviewDetail,
   Rewrite,
   RewriteFormat,
@@ -76,6 +78,14 @@ export const api = {
 
   getReview(reviewId: number): Promise<ReviewDetail> {
     return request(`/api/reviews/${reviewId}`)
+  },
+
+  triggerJobs(cvId: number): Promise<JobsReport> {
+    return request(`/api/cvs/${cvId}/jobs`, { method: 'POST' })
+  },
+
+  getJobMatch(matchId: number): Promise<JobMatch> {
+    return request(`/api/job-matches/${matchId}`)
   },
 
   approveSuggestions(reviewId: number, approvedSuggestionIds: string[]): Promise<{ id: number }> {

@@ -26,6 +26,7 @@
     "express": "^5.2.1",
     "multer": "^2.2.0",
     "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.4.296",
     "pdfmake": "^0.3.11"
   }
 }

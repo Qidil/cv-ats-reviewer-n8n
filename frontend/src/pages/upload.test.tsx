@@ -1,12 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import UploadPage from './upload'
 
+const { mockUploadCv } = vi.hoisted(() => ({
+  mockUploadCv: vi.fn(),
+}))
+
 vi.mock('@/lib/api', () => ({
   api: {
-    uploadCv: vi.fn(),
+    uploadCv: mockUploadCv,
   },
   ApiRequestError: class ApiRequestError extends Error {
     status: number
@@ -20,6 +24,9 @@ vi.mock('@/lib/api', () => ({
 const file = new File(['dummy'], 'cv.pdf', { type: 'application/pdf' })
 
 describe('UploadPage', () => {
+  beforeEach(() => {
+    mockUploadCv.mockReset()
+  })
   it('blocks submission when the target job description is empty (AC-03)', async () => {
     const user = userEvent.setup()
     render(
@@ -30,7 +37,7 @@ describe('UploadPage', () => {
 
     await user.upload(screen.getByLabelText('File CV (PDF)'), file)
     await user.click(screen.getByRole('button', { name: /Lanjut/i }))
-    await user.click(screen.getByRole('button', { name: /Analisis CV/i }))
+    await user.click(screen.getByRole('button', { name: /Mode A/i }))
 
     expect(screen.getByRole('button', { name: /Analisis CV/i })).toBeDisabled()
   })
@@ -45,10 +52,27 @@ describe('UploadPage', () => {
 
     await user.upload(screen.getByLabelText('File CV (PDF)'), file)
     await user.click(screen.getByRole('button', { name: /Lanjut/i }))
+    await user.click(screen.getByRole('button', { name: /Mode A/i }))
     await user.type(screen.getByLabelText('Deskripsi pekerjaan target'), 'Senior Frontend Engineer')
     await user.click(screen.getByRole('button', { name: /Analisis CV/i }))
 
     expect(screen.getByRole('button', { name: /Analisis CV/i })).not.toBeDisabled()
+  })
+
+  it('submits without a job description in Mode B', async () => {
+    mockUploadCv.mockResolvedValue({ id: 7 })
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <UploadPage />
+      </MemoryRouter>,
+    )
+
+    await user.upload(screen.getByLabelText('File CV (PDF)'), file)
+    await user.click(screen.getByRole('button', { name: /Lanjut/i }))
+    await user.click(screen.getByRole('button', { name: /Mode B/i }))
+
+    expect(mockUploadCv).toHaveBeenCalledWith(file, '')
   })
 
   it('highlights the drop zone while dragging a file over it', async () => {

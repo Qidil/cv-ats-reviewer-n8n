@@ -26,6 +26,7 @@ export function createReviewsRouter(db: DatabaseSync): Router {
     res.status(200).json({
       id: review.id,
       cvId: review.cvId,
+      targetJobId: review.targetJobId,
       overallScore: review.overallScore,
       atsChecks: review.atsChecks,
       weaknesses: review.weaknesses,

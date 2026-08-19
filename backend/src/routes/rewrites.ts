@@ -54,7 +54,7 @@ export function createRewritesRouter(db: DatabaseSync): Router {
       return
     }
     const cv = getCvById(db, review.cvId)
-    const targetJob = getTargetJobById(db, review.targetJobId)
+    const targetJob = review.targetJobId === null ? undefined : getTargetJobById(db, review.targetJobId)
     if (cv === undefined || targetJob === undefined) {
       res.status(500).json({ error: 'Data CV tidak lengkap.' })
       return

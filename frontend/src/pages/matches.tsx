@@ -1,14 +1,14 @@
 import { useParams, Link } from 'react-router-dom'
-import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Briefcase, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAnalysis } from '@/hooks/use-analysis'
+import { useJobMatch } from '@/hooks/use-job-match'
 import { scoreZone, statusBadgeVariant, statusLabel } from '@/lib/ats'
 import { parseRouteId } from '@/lib/utils'
-import type { AtsCheck } from '@/types/api'
+import type { AtsCheck, JobMatchItem } from '@/types/api'
 
 function scoreValue(score: number): number {
   return Math.max(0, Math.min(100, Math.round(score)))
@@ -36,10 +36,34 @@ function CheckRow({ check }: { check: AtsCheck }) {
   )
 }
 
-export default function AnalysisPage() {
+function JobRow({ job }: { job: JobMatchItem }) {
+  const zone = scoreZone(job.matchScore)
+  return (
+    <li className="grid gap-2">
+      <div className="flex items-center justify-between gap-4">
+        <span className="font-medium text-foreground">{job.title}</span>
+        <Badge variant={statusBadgeVariant(job.matchScore >= 60 ? 'pass' : 'warn')}>
+          {scoreValue(job.matchScore)}%
+        </Badge>
+      </div>
+      {job.reasons.length > 0 && (
+        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          {job.reasons.map((reason, index) => (
+            <li key={`${job.title}-${index}`}>{reason}</li>
+          ))}
+        </ul>
+      )}
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
+        <div className={`h-full rounded-full ${zone.bar}`} style={{ width: `${scoreValue(job.matchScore)}%` }} />
+      </div>
+    </li>
+  )
+}
+
+export default function MatchesPage() {
   const { cvId: rawCvId } = useParams()
   const cvId = parseRouteId(rawCvId)
-  const { report, isLoading, error } = useAnalysis(cvId ?? 0)
+  const { report, jobMatch, isLoading, error } = useJobMatch(cvId ?? 0)
 
   if (cvId === null) {
     return (
@@ -81,12 +105,12 @@ export default function AnalysisPage() {
     )
   }
 
-  if (isLoading || report === null) {
+  if (isLoading || report === null || jobMatch === null) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center gap-6 px-8 py-16">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Menganalisis CV… model AI dapat memakan waktu beberapa menit.
+          Menganalisis CV & mencari pekerjaan cocok… model AI dapat memakan waktu beberapa menit.
         </div>
         <Card>
           <CardContent className="grid gap-6 py-6">
@@ -115,7 +139,7 @@ export default function AnalysisPage() {
             Upload baru
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Hasil Analisis ATS</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Analisis ATS & Pekerjaan Cocok</h1>
         <p className="text-sm text-muted-foreground">
           Model: {report.modelUsed}
         </p>
@@ -123,8 +147,8 @@ export default function AnalysisPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Skor Kecocokan</CardTitle>
-          <CardDescription>Cocokkan CV dengan deskripsi pekerjaan target.</CardDescription>
+          <CardTitle>Skor Kualitas CV</CardTitle>
+          <CardDescription>Penilaian umum tanpa deskripsi pekerjaan target.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="flex items-baseline gap-3">
@@ -190,6 +214,27 @@ export default function AnalysisPage() {
                   </div>
                   <p className="text-sm text-muted-foreground">{suggestion.description}</p>
                 </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Briefcase className="size-4" aria-hidden="true" />
+            Pekerjaan Cocok
+          </CardTitle>
+          <CardDescription>Saran posisi yang sesuai dengan profil CV Anda.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {jobMatch.matches.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Tidak ada pekerjaan yang tersedia.</p>
+          ) : (
+            <ul className="grid gap-5">
+              {jobMatch.matches.map((job, index) => (
+                <JobRow key={`${job.title}-${index}`} job={job} />
               ))}
             </ul>
           )}

@@ -2,16 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import type { DatabaseSync } from 'node:sqlite'
 import { initDb, openDb } from '../db/connection.js'
-import { insertRewrite } from '../db/repos.js'
 import { N8nProxyError } from '../services/n8n-proxy.js'
 import { createApp } from '../index.js'
 
 vi.mock('../services/n8n-proxy.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../services/n8n-proxy.js')>()
-  return { ...actual, analyzeCv: vi.fn() }
+  return { ...actual, analyzeCv: vi.fn(), matchJobs: vi.fn() }
 })
 
-import { analyzeCv as mockAnalyzeCv } from '../services/n8n-proxy.js'
+import { analyzeCv as mockAnalyzeCv, matchJobs as mockMatchJobs } from '../services/n8n-proxy.js'
 
 function makePdf(text: string): Buffer {
   const content = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`
@@ -58,12 +57,35 @@ const MODEL_RAW = `Berikut laporan ATS CV:
 }
 \`\`\``
 
+const JOBS_RAW = `\`\`\`json
+{
+  "overallScore": 81,
+  "atsChecks": [
+    { "id": "keyword", "name": "Keyword match", "status": "pass", "score": 82, "detail": "strong technical vocabulary" },
+    { "id": "skills", "name": "Skills coverage", "status": "pass", "score": 80, "detail": "good" },
+    { "id": "sections", "name": "Section completeness", "status": "pass", "score": 90, "detail": "ok" },
+    { "id": "formatting", "name": "Formatting", "status": "pass", "score": 88, "detail": "ok" },
+    { "id": "quantified", "name": "Quantified achievements", "status": "warn", "score": 55, "detail": "add metrics" },
+    { "id": "readability", "name": "Readability", "status": "pass", "score": 80, "detail": "ok" }
+  ],
+  "weaknesses": ["Few quantified achievements"],
+  "suggestions": [
+    { "title": "Add metrics", "description": "Add numbers", "category": "achievements", "priority": "high" }
+  ],
+  "jobs": [
+    { "title": "Backend Engineer", "reasons": ["Node.js", "REST API"], "matchScore": 88 },
+    { "title": "DevOps Engineer", "reasons": ["CI/CD"], "matchScore": 74 }
+  ]
+}
+\`\`\``
+
 let db: DatabaseSync
 
 beforeEach(() => {
   db = openDb(':memory:')
   initDb(db)
   vi.mocked(mockAnalyzeCv).mockReset()
+  vi.mocked(mockMatchJobs).mockReset()
 })
 
 afterEach(() => {
@@ -113,11 +135,11 @@ describe('POST /api/cvs', () => {
     expect(res.status).toBe(415)
   })
 
-  it('returns 400 when targetJobDescription is missing', async () => {
+  it('returns 201 when targetJobDescription is missing (Mode B upload)', async () => {
     const res = await request(createApp(db))
       .post('/api/cvs')
       .attach('cv', makePdf('Budi Sudirman'), { filename: 'cv.pdf', contentType: 'application/pdf' })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(201)
   })
 
   it('returns 400 when the upload exceeds the size limit', async () => {
@@ -142,6 +164,7 @@ describe('GET /api/cvs', () => {
       originalFilename: 'cv.pdf',
       createdAt: expect.any(String),
       latestReviewId: null,
+      latestMatchId: null,
     })
   })
 })
@@ -155,6 +178,7 @@ describe('POST /api/cvs/:cvId/analyze', () => {
     expect(res.body).toEqual({
       id: expect.any(Number),
       cvId,
+      targetJobId: expect.any(Number),
       overallScore: 78,
       atsChecks: expect.arrayContaining([expect.objectContaining({ id: 'keyword' })]),
       weaknesses: ['Few quantified achievements'],
@@ -211,6 +235,8 @@ describe('GET /api/reviews/:reviewId', () => {
     const res = await request(createApp(db)).get(`/api/reviews/${reviewId}`)
     expect(res.status).toBe(200)
     expect(res.body.id).toBe(reviewId)
+    expect(res.body.cvId).toBe(cvId)
+    expect(res.body.targetJobId).toBeTypeOf('number')
     expect(res.body.approvalId).toBeNull()
     expect(res.body.rewriteId).toBeNull()
   })
@@ -221,45 +247,109 @@ describe('GET /api/reviews/:reviewId', () => {
   })
 })
 
-describe('POST /api/reviews/:reviewId/approve', () => {
-  async function createReview(): Promise<number> {
-    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW, finishReason: 'stop' })
+describe('POST /api/cvs/:cvId/jobs (Mode B)', () => {
+  it('returns 200 with review + jobMatch and stores both records', async () => {
+    vi.mocked(mockMatchJobs).mockResolvedValue({ model: 'nvidia/test:free', raw: JOBS_RAW, finishReason: 'stop' })
     const cvId = await uploadCv()
-    const analyze = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
-    return analyze.body.id as number
-  }
-
-  it('stores only the approved suggestion ids', async () => {
-    const reviewId = await createReview()
-    const res = await request(createApp(db))
-      .post(`/api/reviews/${reviewId}/approve`)
-      .send({ approvedSuggestionIds: ['sug-1'] })
+    const res = await request(createApp(db)).post(`/api/cvs/${cvId}/jobs`)
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ id: expect.any(Number) })
-
-    const approvalId = res.body.id as number
-    const approval = await request(createApp(db)).get(`/api/approvals/${approvalId}`)
-    expect(approval.status).toBe(200)
-    expect(approval.body.approvedSuggestionIds).toEqual(['sug-1'])
+    expect(res.body.review).toMatchObject({
+      id: expect.any(Number),
+      cvId,
+      overallScore: 81,
+      targetJobId: null,
+      modelUsed: 'nvidia/test:free',
+    })
+    expect(res.body.jobMatch).toMatchObject({
+      id: expect.any(Number),
+      cvId,
+      matches: [
+        { title: 'Backend Engineer', reasons: ['Node.js', 'REST API'], matchScore: 88 },
+        { title: 'DevOps Engineer', reasons: ['CI/CD'], matchScore: 74 },
+      ],
+      modelUsed: 'nvidia/test:free',
+      status: 'completed',
+      errorMessage: null,
+    })
+    expect(res.body.review.atsChecks).toHaveLength(6)
   })
 
-  it('returns 400 for an empty id list', async () => {
-    const reviewId = await createReview()
-    const res = await request(createApp(db))
-      .post(`/api/reviews/${reviewId}/approve`)
-      .send({ approvedSuggestionIds: [] })
-    expect(res.status).toBe(400)
+  it('returns 404 when the CV does not exist', async () => {
+    const res = await request(createApp(db)).post('/api/cvs/999/jobs')
+    expect(res.status).toBe(404)
   })
 
-  it('returns 400 for unknown suggestion ids', async () => {
-    const reviewId = await createReview()
-    const res = await request(createApp(db))
-      .post(`/api/reviews/${reviewId}/approve`)
-      .send({ approvedSuggestionIds: ['sug-99'] })
-    expect(res.status).toBe(400)
+  it('returns 502 when the proxy fails', async () => {
+    vi.mocked(mockMatchJobs).mockRejectedValue(new N8nProxyError('n8n down'))
+    const cvId = await uploadCv()
+    const res = await request(createApp(db)).post(`/api/cvs/${cvId}/jobs`)
+    expect(res.status).toBe(502)
   })
 
-  it('returns 404 for an unknown review', async () => {
+  it('returns 502 with a jobs-specific message when the output cannot be parsed', async () => {
+    vi.mocked(mockMatchJobs).mockResolvedValue({ model: 'nvidia/test:free', raw: '', finishReason: 'length' })
+    const cvId = await uploadCv()
+    const res = await request(createApp(db)).post(`/api/cvs/${cvId}/jobs`)
+    expect(res.status).toBe(502)
+    expect(res.body.error).toContain('saran pekerjaan')
+  })
+
+  it('returns 502 when the model returns a continuation fragment without core fields (Phase 12)', async () => {
+    const fragment = JSON.stringify({
+      description: 'Buat dua sub-section berdasarkan pengalaman',
+      jobs: [{ title: 'Backend Engineer', reasons: ['Node.js'], matchScore: 88 }],
+    })
+    vi.mocked(mockMatchJobs).mockResolvedValue({ model: 'nvidia/test:free', raw: fragment, finishReason: 'stop' })
+    const cvId = await uploadCv()
+    const res = await request(createApp(db)).post(`/api/cvs/${cvId}/jobs`)
+    expect(res.status).toBe(502)
+  })
+
+  it('returns 502 when the parsed report has an empty jobs list (Phase 12)', async () => {
+    const raw = JSON.stringify({
+      overallScore: 81,
+      atsChecks: [
+        { id: 'keyword', name: 'Keyword match', status: 'pass', score: 82, detail: 'x' },
+        { id: 'skills', name: 'Skills coverage', status: 'pass', score: 80, detail: 'x' },
+        { id: 'sections', name: 'Section completeness', status: 'pass', score: 90, detail: 'x' },
+        { id: 'formatting', name: 'Formatting', status: 'pass', score: 88, detail: 'x' },
+        { id: 'quantified', name: 'Quantified achievements', status: 'warn', score: 55, detail: 'x' },
+        { id: 'readability', name: 'Readability', status: 'pass', score: 80, detail: 'x' },
+      ],
+      weaknesses: [],
+      suggestions: [],
+      jobs: [],
+    })
+    vi.mocked(mockMatchJobs).mockResolvedValue({ model: 'nvidia/test:free', raw, finishReason: 'stop' })
+    const cvId = await uploadCv()
+    const res = await request(createApp(db)).post(`/api/cvs/${cvId}/jobs`)
+    expect(res.status).toBe(502)
+  })
+})
+
+describe('GET /api/job-matches/:matchId', () => {
+  it('returns the stored job match', async () => {
+    vi.mocked(mockMatchJobs).mockResolvedValue({ model: 'nvidia/test:free', raw: JOBS_RAW, finishReason: 'stop' })
+    const cvId = await uploadCv()
+    const jobs = await request(createApp(db)).post(`/api/cvs/${cvId}/jobs`)
+    const matchId = jobs.body.jobMatch.id as number
+
+    const res = await request(createApp(db)).get(`/api/job-matches/${matchId}`)
+    expect(res.status).toBe(200)
+    expect(res.body.id).toBe(matchId)
+    expect(res.body.cvId).toBe(cvId)
+    expect(res.body.matches).toHaveLength(2)
+    expect(res.body.modelUsed).toBe('nvidia/test:free')
+  })
+
+  it('returns 404 for an unknown match', async () => {
+    const res = await request(createApp(db)).get('/api/job-matches/999')
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('POST /api/reviews/:reviewId/approve (rewrite flow disabled)', () => {
+  it('returns 404 when the approvals router is not mounted', async () => {
     const res = await request(createApp(db))
       .post('/api/reviews/999/approve')
       .send({ approvedSuggestionIds: ['sug-1'] })
@@ -267,47 +357,15 @@ describe('POST /api/reviews/:reviewId/approve', () => {
   })
 })
 
-describe('GET /api/approvals/:approvalId', () => {
-  it('returns 404 for an unknown approval', async () => {
+describe('GET /api/approvals/:approvalId (rewrite flow disabled)', () => {
+  it('returns 404 for any approval id', async () => {
     const res = await request(createApp(db)).get('/api/approvals/999')
     expect(res.status).toBe(404)
   })
 })
 
-describe('GET /api/rewrites/:rewriteId', () => {
-  it('returns 200 with a stored rewrite', async () => {
-    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW, finishReason: 'stop' })
-    const cvId = await uploadCv()
-    const analyze = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
-    const reviewId = analyze.body.id as number
-    const approve = await request(createApp(db))
-      .post(`/api/reviews/${reviewId}/approve`)
-      .send({ approvedSuggestionIds: ['sug-1'] })
-    const approvalId = approve.body.id as number
-
-    const rewriteId = insertRewrite(db, {
-      reviewId,
-      approvalId,
-      rewrittenMarkdown: '# Rewritten',
-      postScore: 84,
-      warnings: ['Removed 1 education detail'],
-      postModelUsed: 'nvidia/post:free',
-    })
-
-    const res = await request(createApp(db)).get(`/api/rewrites/${rewriteId}`)
-    expect(res.status).toBe(200)
-    expect(res.body).toMatchObject({
-      id: rewriteId,
-      reviewId,
-      approvalId,
-      rewrittenMarkdown: '# Rewritten',
-      postScore: 84,
-      warnings: ['Removed 1 education detail'],
-      postModelUsed: 'nvidia/post:free',
-    })
-  })
-
-  it('returns 404 for an unknown rewrite', async () => {
+describe('GET /api/rewrites/:rewriteId (rewrite flow disabled)', () => {
+  it('returns 404 for any rewrite id', async () => {
     const res = await request(createApp(db)).get('/api/rewrites/999')
     expect(res.status).toBe(404)
   })

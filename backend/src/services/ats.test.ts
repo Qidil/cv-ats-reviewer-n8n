@@ -115,6 +115,16 @@ describe('analyzeCv — deterministic ATS engine', () => {
     const result = analyzeCv(SAMPLE_CV, '!!!')
     expect(result.overallScore).toBeGreaterThanOrEqual(0)
   })
+
+  it('uses Mode B fallback wording for keyword/skills checks when the JD is empty', () => {
+    const result = analyzeCv(SAMPLE_CV, '')
+    const keyword = result.atsChecks.find((c) => c.id === 'keyword')
+    const skills = result.atsChecks.find((c) => c.id === 'skills')
+    expect(keyword!.detail).toMatch(/Mode B/)
+    expect(keyword!.status).toBe('warn')
+    expect(skills!.detail).toMatch(/Mode B/)
+    expect(skills!.status).toBe('warn')
+  })
 })
 
 describe('analyzeCv — QUALITY-01 refinements', () => {

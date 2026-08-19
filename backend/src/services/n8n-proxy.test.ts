@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { analyzeCv, rewriteCv, N8nProxyError } from './n8n-proxy.js'
+import { analyzeCv, matchJobs, rewriteCv, N8nProxyError } from './n8n-proxy.js'
 
 interface HttpCall {
   url: URL
@@ -175,6 +175,50 @@ const REWRITE_BODY = {
   postCheckRaw: '{"postScore":80,"warnings":[]}',
   postCheckFinishReason: 'stop',
 }
+
+describe('matchJobs — n8n job-match webhook proxy', () => {
+  it('posts the payload to N8N_JOBS_PATH without a JD', async () => {
+    vi.stubEnv('N8N_URL', 'http://n8n.example.com/')
+    vi.stubEnv('N8N_JOBS_PATH', 'cv-jobs')
+    respondOk(VALID_BODY)
+
+    const payload = { cvId: 9, cvText: 'Budi\nNode.js\nREST' }
+    await matchJobs(payload)
+
+    expect(httpState.calls).toHaveLength(1)
+    const call = httpState.calls[0]!
+    expect(call.url.href).toBe('http://n8n.example.com/webhook/cv-jobs')
+    expect(JSON.parse(call.body)).toEqual(payload)
+  })
+
+  it('falls back to localhost and the default jobs path when env vars are unset', async () => {
+    respondOk(VALID_BODY)
+    await matchJobs({ cvId: 9, cvText: 'CV' })
+    expect(httpState.calls[0]!.url.href).toBe('http://localhost:5678/webhook/cv-jobs')
+  })
+
+  it('returns { model, raw, finishReason } on a successful response', async () => {
+    respondOk(VALID_BODY)
+    const result = await matchJobs({ cvId: 9, cvText: 'CV' })
+    expect(result).toEqual(VALID_BODY)
+  })
+
+  it('normalizes a missing finishReason to null', async () => {
+    respondOk({ model: 'm', raw: '{}' })
+    const result = await matchJobs({ cvId: 9, cvText: 'CV' })
+    expect(result.finishReason).toBeNull()
+  })
+
+  it('throws N8nProxyError when the response does not match the contract', async () => {
+    respondOk({ model: 42 })
+    await expect(matchJobs({ cvId: 9, cvText: 'CV' })).rejects.toThrow(N8nProxyError)
+  })
+
+  it('wraps a network failure as N8nProxyError', async () => {
+    respondFailure(new Error('ECONNREFUSED'))
+    await expect(matchJobs({ cvId: 9, cvText: 'CV' })).rejects.toThrow(N8nProxyError)
+  })
+})
 
 describe('rewriteCv — n8n rewrite webhook proxy', () => {
   it('posts payload to N8N_REWRITE_PATH with approvedSuggestions', async () => {

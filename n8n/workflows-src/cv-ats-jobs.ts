@@ -4,10 +4,10 @@ const webhook = trigger({
   type: 'n8n-nodes-base.webhook',
   version: 2.1,
   config: {
-    name: 'CV Analyze Webhook',
+    name: 'CV Jobs Webhook',
     parameters: {
       httpMethod: 'POST',
-      path: 'cv-analyze',
+      path: 'cv-jobs',
       responseMode: 'lastNode',
       responseData: 'firstEntryJson',
       options: {},
@@ -26,28 +26,29 @@ const normalizeInput = node({
       assignments: {
         assignments: [
           { id: 'cv-text', name: 'cvText', value: expr('{{ $json.body?.cvText ?? $json.cvText ?? "" }}'), type: 'string' },
-          { id: 'jd', name: 'targetJobDescription', value: expr('{{ $json.body?.targetJobDescription ?? $json.targetJobDescription ?? "" }}'), type: 'string' },
         ],
       },
     },
   },
 })
 
-// Phase 10 sync: prompt aligned to the Task 8.4 rubric that already existed in the
-// live n8n workflow (the TS source had fallen behind). Explicit rubric + factual evidence.
-const analyzeSystemPrompt =
+// Phase 11: Mode B prompt — full ATS rubric (same as analyze) + AI rules
+// #1/#2/#3/#5 + 5-10 job suggestions with CV-specific reasons and matchScore.
+const jobsSystemPrompt =
   'Kamu adalah penilai ATS (Applicant Tracking System) yang STRICT dan kritikal terhadap CV. ' +
-  'Nilai kecocokan CV terhadap deskripsi pekerjaan (JD) memakai rubrik berikut. ' +
+  'Nilai kualitas CV secara umum (TANPA deskripsi pekerjaan target) memakai rubrik berikut. ' +
   'RUBRIK SKOR (bobot, total 100): keyword match 40, skills coverage 20, sections completeness 15, ' +
   'formatting/parse-safety 10, quantified achievements 10, readability 5. ' +
+  'Tanpa JD, keyword match dan skills coverage dinilai secara generik berdasarkan kejelasan ' +
+  'dan kelengkapan keahlian yang tercantum di CV (perhatikan istilah yang lazim di industri). ' +
   'Hitung overallScore sebagai rata-rata tertimbang dari 6 atsChecks di bawah sesuai bobot rubrik. ' +
-  'JANGAN generos: beri skor rendah bila CV tidak memenuhi kriteria (keyword JD tidak tercermin, tanpa metrik, ' +
+  'JANGAN generos: beri skor rendah bila CV tidak memenuhi kriteria (istilah kunci tidak jelas, tanpa metrik, ' +
   'format sulit diparsing, bagian standar hilang). ' +
   'ANALISIS TIAP KRITERIA SECARA EKSPLISIT sebelum memberi skor, dan isi detail dengan bukti dari CV: ' +
-  '1) keyword — cocokkan tiap istilah JD terhadap CV (kata persis maupun frase; perhatikan sinonim/varian bentuk). ' +
-  'Sebutkan berapa dari total istilah JD yang cocok dan istilah mana yang TIDAK ditemukan. ' +
-  '2) skills — bedakan skill WAJIB (required) vs PREFERRED pada JD; nilai kelengkapan CV terhadap keduanya. ' +
-  'Sebutkan skill yang ada dan yang hilang. ' +
+  '1) keyword — identifikasi istilah/keahlian kunci yang tercantum di CV dan sebutkan seberapa spesifik ' +
+  'mereka dibandingkan istilah industri yang lazim. ' +
+  '2) skills — bedakan skill yang disebutkan secara eksplisit vs tersirat; nilai kelengkapan dan keragaman. ' +
+  'Sebutkan skill yang ada dan yang lemah/kurang. ' +
   '3) sections — periksa bagian standar: summary/ringkasan, experience/pengalaman, education/pendidikan, skills/keahlian. ' +
   'Sebutkan bagian yang ADA dan yang HILANG. ' +
   '4) quantified — cari achievement dengan angka/metrik (persen, jumlah, waktu, biaya). ' +
@@ -55,7 +56,7 @@ const analyzeSystemPrompt =
   '5) formatting — nilai keamanan parsing ATS: satu kolom, tanpa tabel/kolom ganda, heading jelas, tanpa gambar/footer. ' +
   'Sebutkan indikator nyata yang memengaruhi skor. ' +
   '6) readability — nilai kerapian bahasa: ringkas, poin terstruktur, tanpa jargon berlebihan. ' +
-  'Detail tiap check WAJIB menyebut bukti faktual spesifik dari CV (nama bagian, skill, angka, istilah JD) ' +
+  'Detail tiap check WAJIB menyebut bukti faktual spesifik dari CV (nama bagian, skill, angka, istilah) ' +
   '— BUKAN pernyataan generik; jika bukti tidak ada, nyatakan ketiadaannya. ' +
   'Per-check: score 0-100, status >=80 = pass, 60-79 = warn, <60 = fail. ' +
   'ATURAN WAJIB: ' +
@@ -66,42 +67,41 @@ const analyzeSystemPrompt =
   '#3 Deteksi manipulasi ATS — beri penalti pada keyword stuffing atau teks tersembunyi ' +
   '(font ~1px, warna sama dengan background). ' +
   '#5 Anti-bias — jangan menilai dari nama/foto/usia/jenis kelamin/asal tempat tinggal. ' +
+  'SELAIN ITU, beri saran 5-10 pekerjaan yang paling cocok dengan profil CV. ' +
+  'Untuk tiap pekerjaan: judul (title), 2-4 alasan spesifik dari isi CV (reasons), dan skor kecocokan ' +
+  '0-100 (matchScore) berdasarkan relevansi skill & pengalaman. ' +
   'Kembalikan HANYA JSON tanpa markdown code fence dengan format: ' +
   '{"overallScore": number 0-100, "atsChecks": [{"id": string, "name": string, "status": "pass"|"warn"|"fail", ' +
   '"score": number, "detail": string}], "weaknesses": [string], ' +
   '"suggestions": [{"id": string, "title": string, "description": string, "category": string, ' +
-  '"priority": "high"|"medium"|"low"}]}. ' +
+  '"priority": "high"|"medium"|"low"}], ' +
+  '"jobs": [{"title": string, "reasons": [string], "matchScore": number}]}. ' +
   'id atsChecks HARUS persis: keyword, skills, sections, formatting, quantified, readability. ' +
   'Gunakan bahasa Indonesia untuk semua teks.'
 
-// Phase 10 (FAILOVER-CONTINUE): Model 1 always uses the full prompt (there is no
-// previous model). Models 2-5 use analyzeContinueUserMessage so that when the
-// previous model hit finish_reason "length", this model CONTINUES the partial
-// output (instead of starting from zero) — saving tokens & avoiding rework.
-const analyzeUserMessage = expr(
-  'CV:\n{{ $("Normalize Input").item.json.cvText }}\n\n' +
-  'Deskripsi Pekerjaan (JD):\n{{ $("Normalize Input").item.json.targetJobDescription }}'
-)
+// Phase 10 (FAILOVER-CONTINUE): Model 1 uses the full prompt. Models 2-5 use
+// jobsContinueUserMessage so a truncated previous model is CONTINUED instead of
+// restarted — saving tokens & avoiding rework.
+const jobsUserMessage = expr('CV:\n{{ $("Normalize Input").item.json.cvText }}')
 
-const analyzeContinueUserMessage = expr(
+const jobsContinueUserMessage = expr(
   '{{ ($json.choices?.[0]?.finish_reason ?? "") === "length" && ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 ' +
-  '? "Model sebelumnya terpotong oleh batas token. HASILKAN dokumen final LENGKAP yang memenuhi SELURUH instruksi system prompt (overallScore, atsChecks, weaknesses, dan suggestions). Gunakan output parsial di bawah hanya sebagai referensi isi — JANGAN keluarkan fragment/sisa saja; hasil akhir harus JSON utuh yang siap dipakai.\\n\\n=== OUTPUT PARSIAL MODEL SEBELUMNYA ===\\n" + $json.choices[0].message.content ' +
+  '? "Model sebelumnya terpotong oleh batas token. HASILKAN dokumen final LENGKAP yang memenuhi SELURUH instruksi system prompt (overallScore, atsChecks, weaknesses, suggestions, dan jobs). Gunakan output parsial di bawah hanya sebagai referensi isi — JANGAN keluarkan fragment/sisa saja; hasil akhir harus JSON utuh yang siap dipakai.\\n\\n=== OUTPUT PARSIAL MODEL SEBELUMNYA ===\\n" + $json.choices[0].message.content ' +
   '+ "\\n\\n=== KONTEKS (dipakai sebagai referensi isi) ===\\nCV:\\n" + $("Normalize Input").item.json.cvText ' +
-  '+ "\\n\\nDeskripsi Pekerjaan (JD):\\n" + $("Normalize Input").item.json.targetJobDescription ' +
-  ': "CV:\\n" + $("Normalize Input").item.json.cvText + "\\n\\nDeskripsi Pekerjaan (JD):\\n" + $("Normalize Input").item.json.targetJobDescription }}'
+  ': "CV:\\n" + $("Normalize Input").item.json.cvText }}'
 )
 
 // Phase 12: structure check — a truncated continuation fragment (missing the core
 // fields) must NOT pass as valid. Require the top-level keys to be present in the
 // content before the chain accepts the model's output.
-const analyzeStructureCheck =
-  '{{ ($json.choices?.[0]?.message?.content ?? "").includes(\'"overallScore"\') && ($json.choices?.[0]?.message?.content ?? "").includes(\'"atsChecks"\') }}'
+const jobsStructureCheck =
+  '{{ ($json.choices?.[0]?.message?.content ?? "").includes(\'"overallScore"\') && ($json.choices?.[0]?.message?.content ?? "").includes(\'"atsChecks"\') && ($json.choices?.[0]?.message?.content ?? "").includes(\'"jobs"\') }}'
 
-const analyzeM1 = node({
+const jobsM1 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
   config: {
-    name: 'Analyze - Model 1',
+    name: 'Jobs - Model 1',
     position: [540, 300],
     parameters: {
       method: 'POST',
@@ -114,8 +114,8 @@ const analyzeM1 = node({
       jsonBody: {
         model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
         messages: [
-          { role: 'system', content: analyzeSystemPrompt },
-          { role: 'user', content: analyzeUserMessage },
+          { role: 'system', content: jobsSystemPrompt },
+          { role: 'user', content: jobsUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -127,11 +127,11 @@ const analyzeM1 = node({
   },
 })
 
-const analyzeM2 = node({
+const jobsM2 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
   config: {
-    name: 'Analyze - Model 2',
+    name: 'Jobs - Model 2',
     position: [540, 480],
     parameters: {
       method: 'POST',
@@ -144,8 +144,8 @@ const analyzeM2 = node({
       jsonBody: {
         model: 'nvidia/nemotron-3-super-120b-a12b:free',
         messages: [
-          { role: 'system', content: analyzeSystemPrompt },
-          { role: 'user', content: analyzeContinueUserMessage },
+          { role: 'system', content: jobsSystemPrompt },
+          { role: 'user', content: jobsContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -157,11 +157,11 @@ const analyzeM2 = node({
   },
 })
 
-const analyzeM3 = node({
+const jobsM3 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
   config: {
-    name: 'Analyze - Model 3',
+    name: 'Jobs - Model 3',
     position: [540, 660],
     parameters: {
       method: 'POST',
@@ -174,8 +174,8 @@ const analyzeM3 = node({
       jsonBody: {
         model: 'nvidia/nemotron-3-nano-30b-a3b:free',
         messages: [
-          { role: 'system', content: analyzeSystemPrompt },
-          { role: 'user', content: analyzeContinueUserMessage },
+          { role: 'system', content: jobsSystemPrompt },
+          { role: 'user', content: jobsContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -187,11 +187,11 @@ const analyzeM3 = node({
   },
 })
 
-const analyzeM4 = node({
+const jobsM4 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
   config: {
-    name: 'Analyze - Model 4',
+    name: 'Jobs - Model 4',
     position: [540, 840],
     parameters: {
       method: 'POST',
@@ -204,8 +204,8 @@ const analyzeM4 = node({
       jsonBody: {
         model: 'google/gemma-4-31b-it:free',
         messages: [
-          { role: 'system', content: analyzeSystemPrompt },
-          { role: 'user', content: analyzeContinueUserMessage },
+          { role: 'system', content: jobsSystemPrompt },
+          { role: 'user', content: jobsContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -220,11 +220,11 @@ const analyzeM4 = node({
 // tradeoff (CR-18 INFO): Model 5 is the terminal model — no validation If-node.
 // If the whole chain fails, Model 5's error flows to Format Output (empty raw) and
 // the backend reports a generic contract error. Accepted as a last-resort design.
-const analyzeM5 = node({
+const jobsM5 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
   config: {
-    name: 'Analyze - Model 5',
+    name: 'Jobs - Model 5',
     position: [540, 1020],
     parameters: {
       method: 'POST',
@@ -237,8 +237,8 @@ const analyzeM5 = node({
       jsonBody: {
         model: 'openai/gpt-oss-20b:free',
         messages: [
-          { role: 'system', content: analyzeSystemPrompt },
-          { role: 'user', content: analyzeContinueUserMessage },
+          { role: 'system', content: jobsSystemPrompt },
+          { role: 'user', content: jobsContinueUserMessage },
         ],
         temperature: 0.2,
         max_tokens: 4096,
@@ -257,10 +257,10 @@ const analyzeM5 = node({
 // because the n8n Workflow SDK parser rejects function/arrow functions — the only
 // valid way is an inline ifElse declaration per model (declarative SDK-DSL constraint).
 
-const analyzeValidM1 = ifElse({
+const jobsValidM1 = ifElse({
   version: 2.3,
   config: {
-    name: 'Analyze Valid Model 1',
+    name: 'Jobs Valid Model 1',
     position: [880, 300],
     parameters: {
       conditions: {
@@ -269,7 +269,7 @@ const analyzeValidM1 = ifElse({
           { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
           { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
           { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
-          { leftValue: expr(analyzeStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr(jobsStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
         ],
         combinator: 'and',
       },
@@ -277,10 +277,10 @@ const analyzeValidM1 = ifElse({
   },
 })
 
-const analyzeValidM2 = ifElse({
+const jobsValidM2 = ifElse({
   version: 2.3,
   config: {
-    name: 'Analyze Valid Model 2',
+    name: 'Jobs Valid Model 2',
     position: [880, 480],
     parameters: {
       conditions: {
@@ -289,7 +289,7 @@ const analyzeValidM2 = ifElse({
           { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
           { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
           { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
-          { leftValue: expr(analyzeStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr(jobsStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
         ],
         combinator: 'and',
       },
@@ -297,10 +297,10 @@ const analyzeValidM2 = ifElse({
   },
 })
 
-const analyzeValidM3 = ifElse({
+const jobsValidM3 = ifElse({
   version: 2.3,
   config: {
-    name: 'Analyze Valid Model 3',
+    name: 'Jobs Valid Model 3',
     position: [880, 660],
     parameters: {
       conditions: {
@@ -309,7 +309,7 @@ const analyzeValidM3 = ifElse({
           { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
           { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
           { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
-          { leftValue: expr(analyzeStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr(jobsStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
         ],
         combinator: 'and',
       },
@@ -317,10 +317,10 @@ const analyzeValidM3 = ifElse({
   },
 })
 
-const analyzeValidM4 = ifElse({
+const jobsValidM4 = ifElse({
   version: 2.3,
   config: {
-    name: 'Analyze Valid Model 4',
+    name: 'Jobs Valid Model 4',
     position: [880, 840],
     parameters: {
       conditions: {
@@ -329,7 +329,7 @@ const analyzeValidM4 = ifElse({
           { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
           { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
           { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
-          { leftValue: expr(analyzeStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr(jobsStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
         ],
         combinator: 'and',
       },
@@ -355,39 +355,39 @@ const formatOutput = node({
   },
 })
 
-export default workflow('cv-ats-analyze', 'CV ATS Analyze')
+export default workflow('cv-ats-jobs', 'CV ATS Jobs')
   .add(webhook)
   .to(normalizeInput)
   .to(
-    analyzeM1
+    jobsM1
       .to(
-        analyzeValidM1
+        jobsValidM1
           .onTrue(formatOutput)
           .onFalse(
-            analyzeM2
+            jobsM2
               .to(
-                analyzeValidM2
+                jobsValidM2
                   .onTrue(formatOutput)
                   .onFalse(
-                    analyzeM3
+                    jobsM3
                       .to(
-                        analyzeValidM3
+                        jobsValidM3
                           .onTrue(formatOutput)
                           .onFalse(
-                            analyzeM4
+                            jobsM4
                               .to(
-                                analyzeValidM4
+                                jobsValidM4
                                   .onTrue(formatOutput)
-                                  .onFalse(analyzeM5.to(formatOutput)),
+                                  .onFalse(jobsM5.to(formatOutput)),
                               )
-                              .onError(analyzeM5),
+                              .onError(jobsM5),
                           ),
                       )
-                      .onError(analyzeM4),
+                      .onError(jobsM4),
                   ),
               )
-              .onError(analyzeM3),
+              .onError(jobsM3),
           ),
       )
-      .onError(analyzeM2),
+      .onError(jobsM2),
   )

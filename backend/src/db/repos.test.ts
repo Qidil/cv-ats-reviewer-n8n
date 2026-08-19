@@ -19,6 +19,9 @@ import {
   getRewriteById,
   getRewriteByReviewId,
   getRewriteByApprovalId,
+  insertJobMatch,
+  getJobMatchById,
+  getLatestJobMatchByCvId,
   type Suggestion,
 } from './repos.js'
 
@@ -85,9 +88,16 @@ describe('cvs repository', () => {
         id: cvId,
         originalFilename: 'cv.pdf',
         latestReviewId: reviewB,
+        latestMatchId: null,
       }),
     ])
     expect(listCvs(db!)[0]?.latestReviewId).not.toBe(reviewA)
+  })
+
+  it('computes latestMatchId when a job match exists', () => {
+    const cvId = seedCv()
+    const matchId = insertJobMatch(db!, { cvId, matches: [{ title: 'Backend Engineer', reasons: ['Node.js'], matchScore: 88 }], modelUsed: 'm' })
+    expect(listCvs(db!)[0]?.latestMatchId).toBe(matchId)
   })
 })
 
@@ -128,6 +138,49 @@ describe('reviews repository', () => {
     ])
     expect(review?.weaknesses).toEqual(['weak'])
     expect(review?.suggestions[0]?.priority).toBe('high')
+  })
+
+  it('stores a Mode B review with null target_job_id', () => {
+    const cvId = seedCv()
+    const id = insertReview(db!, {
+      cvId,
+      targetJobId: null,
+      overallScore: 64,
+      atsChecks: [],
+      weaknesses: ['weak'],
+      suggestions: [],
+      modelUsed: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    })
+    const review = getReviewById(db!, id)
+    expect(review).toMatchObject({ id, cvId, targetJobId: null, overallScore: 64, status: 'completed' })
+  })
+})
+
+describe('job_matches repository', () => {
+  it('stores matches and reads them back', () => {
+    const cvId = seedCv()
+    const matches = [
+      { title: 'Backend Engineer', reasons: ['Node.js', 'REST API'], matchScore: 88 },
+      { title: 'DevOps Engineer', reasons: ['CI/CD'], matchScore: 74 },
+    ]
+    const id = insertJobMatch(db!, { cvId, matches, modelUsed: 'nvidia/nemotron-3-ultra-550b-a55b:free' })
+    const match = getJobMatchById(db!, id)
+    expect(match).toMatchObject({
+      id,
+      cvId,
+      matches,
+      modelUsed: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+      status: 'completed',
+      errorMessage: null,
+    })
+    expect(match?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+  })
+
+  it('finds the latest job match for a cv', () => {
+    const cvId = seedCv()
+    insertJobMatch(db!, { cvId, matches: [{ title: 'A', reasons: [], matchScore: 50 }], modelUsed: 'm1' })
+    const latest = insertJobMatch(db!, { cvId, matches: [{ title: 'B', reasons: [], matchScore: 60 }], modelUsed: 'm2' })
+    expect(getLatestJobMatchByCvId(db!, cvId)?.id).toBe(latest)
   })
 })
 

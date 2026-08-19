@@ -33,6 +33,7 @@ export interface CvListItem {
   originalFilename: string
   createdAt: string
   latestReviewId: number | null
+  latestMatchId: number | null
 }
 
 export interface TargetJob {
@@ -46,11 +47,27 @@ export interface TargetJob {
 export interface Review {
   id: number
   cvId: number
-  targetJobId: number
+  targetJobId: number | null
   overallScore: number
   atsChecks: AtsCheck[]
   weaknesses: string[]
   suggestions: Suggestion[]
+  modelUsed: string
+  status: RunStatus
+  errorMessage: string | null
+  createdAt: string
+}
+
+export interface JobMatchItem {
+  title: string
+  reasons: string[]
+  matchScore: number
+}
+
+export interface JobMatch {
+  id: number
+  cvId: number
+  matches: JobMatchItem[]
   modelUsed: string
   status: RunStatus
   errorMessage: string | null
@@ -90,11 +107,19 @@ export interface NewTargetJob {
 
 export interface NewReview {
   cvId: number
-  targetJobId: number
+  targetJobId: number | null
   overallScore: number
   atsChecks: AtsCheck[]
   weaknesses: string[]
   suggestions: Suggestion[]
+  modelUsed: string
+  status?: RunStatus
+  errorMessage?: string | null
+}
+
+export interface NewJobMatch {
+  cvId: number
+  matches: JobMatchItem[]
   modelUsed: string
   status?: RunStatus
   errorMessage?: string | null
@@ -152,11 +177,21 @@ interface TargetJobRow {
 interface ReviewRow {
   id: number
   cv_id: number
-  target_job_id: number
+  target_job_id: number | null
   overall_score: number
   ats_checks_json: string
   weaknesses_json: string
   suggestions_json: string
+  model_used: string
+  status: RunStatus
+  error_message: string | null
+  created_at: string
+}
+
+interface JobMatchRow {
+  id: number
+  cv_id: number
+  matches_json: string
   model_used: string
   status: RunStatus
   error_message: string | null
@@ -214,7 +249,8 @@ export function listCvs(db: DatabaseSync): CvListItem[] {
   const rows = db
     .prepare(
       `SELECT c.id, c.original_filename, c.created_at,
-              (SELECT MAX(r.id) FROM reviews r WHERE r.cv_id = c.id) AS latest_review_id
+              (SELECT MAX(r.id) FROM reviews r WHERE r.cv_id = c.id) AS latest_review_id,
+              (SELECT MAX(j.id) FROM job_matches j WHERE j.cv_id = c.id) AS latest_match_id
        FROM cvs c
        ORDER BY c.created_at DESC, c.id DESC`,
     )
@@ -223,12 +259,14 @@ export function listCvs(db: DatabaseSync): CvListItem[] {
     original_filename: string
     created_at: string
     latest_review_id: number | null
+    latest_match_id: number | null
   }>
   return rows.map((row) => ({
     id: row.id,
     originalFilename: row.original_filename,
     createdAt: row.created_at,
     latestReviewId: row.latest_review_id,
+    latestMatchId: row.latest_match_id,
   }))
 }
 
@@ -388,4 +426,42 @@ export function getRewriteByApprovalId(db: DatabaseSync, approvalId: number): Re
     .prepare('SELECT * FROM rewrites WHERE approval_id = ? ORDER BY id DESC LIMIT 1')
     .get(approvalId) as RewriteRow | undefined
   return row === undefined ? undefined : toRewrite(row)
+}
+
+export function insertJobMatch(db: DatabaseSync, input: NewJobMatch): number {
+  return lastId(
+    db,
+    `INSERT INTO job_matches (cv_id, matches_json, model_used, status, error_message, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    input.cvId,
+    JSON.stringify(input.matches),
+    input.modelUsed,
+    input.status ?? 'completed',
+    input.errorMessage ?? null,
+    nowIso(),
+  )
+}
+
+function toJobMatch(row: JobMatchRow): JobMatch {
+  return {
+    id: row.id,
+    cvId: row.cv_id,
+    matches: parseJson<JobMatchItem[]>(row.matches_json),
+    modelUsed: row.model_used,
+    status: row.status,
+    errorMessage: row.error_message,
+    createdAt: row.created_at,
+  }
+}
+
+export function getJobMatchById(db: DatabaseSync, id: number): JobMatch | undefined {
+  const row = db.prepare('SELECT * FROM job_matches WHERE id = ?').get(id) as JobMatchRow | undefined
+  return row === undefined ? undefined : toJobMatch(row)
+}
+
+export function getLatestJobMatchByCvId(db: DatabaseSync, cvId: number): JobMatch | undefined {
+  const row = db
+    .prepare('SELECT * FROM job_matches WHERE cv_id = ? ORDER BY id DESC LIMIT 1')
+    .get(cvId) as JobMatchRow | undefined
+  return row === undefined ? undefined : toJobMatch(row)
 }

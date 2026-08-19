@@ -22,7 +22,8 @@ function formatDate(iso: string): string {
 }
 
 function HistoryItem({ cv }: { cv: CvListItem }) {
-  const reviewTarget = cv.latestReviewId === null ? null : `/approval/${cv.latestReviewId}`
+  const hasReview = cv.latestReviewId !== null
+  const hasMatch = cv.latestMatchId !== null
 
   return (
     <li>
@@ -40,10 +41,19 @@ function HistoryItem({ cv }: { cv: CvListItem }) {
               </span>
             </div>
           </div>
-          {reviewTarget !== null ? (
-            <Button asChild variant="outline" size="sm">
-              <Link to={reviewTarget}>Lihat Analisis</Link>
-            </Button>
+          {hasReview || hasMatch ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {hasReview && (
+                <Button asChild variant="outline" size="sm">
+                  <Link to={`/analysis/${cv.id}`}>Lihat Analisis</Link>
+                </Button>
+              )}
+              {hasMatch && (
+                <Button asChild variant="outline" size="sm">
+                  <Link to={`/matches/${cv.id}`}>Lihat Pekerjaan Cocok</Link>
+                </Button>
+              )}
+            </div>
           ) : (
             <span className="text-sm text-muted-foreground">Belum dianalisis</span>
           )}

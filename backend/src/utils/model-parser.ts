@@ -1,10 +1,14 @@
-import type { AtsCheck, AtsCheckStatus, Suggestion, SuggestionPriority } from '../db/repos.js'
+import type { AtsCheck, AtsCheckStatus, JobMatchItem, Suggestion, SuggestionPriority } from '../db/repos.js'
 
 export interface AnalyzeReport {
   overallScore: number | null
   atsChecks: AtsCheck[]
   weaknesses: string[]
   suggestions: Suggestion[]
+}
+
+export interface JobsReport extends AnalyzeReport {
+  jobs: JobMatchItem[]
 }
 
 export class ModelParseError extends Error {
@@ -33,6 +37,17 @@ export function describeRewriteFailure(finishReason: string | null): string {
     return 'Model AI terakhir kehabisan token saat menulis ulang CV (batas token tercapai). Coba lagi nanti atau gunakan model berbayar.'
   }
   return 'Semua model AI gagal menulis ulang CV (kemungkinan rate limit/error). Coba lagi nanti atau gunakan model berbayar.'
+}
+
+export function describeJobsFailure(raw: string, finishReason: string | null): string {
+  const empty = typeof raw !== 'string' || raw.trim().length === 0
+  if (finishReason === 'length') {
+    return 'Model AI terakhir kehabisan token saat menulis saran pekerjaan (batas token tercapai). Coba lagi nanti atau gunakan model berbayar.'
+  }
+  if (empty) {
+    return 'Semua model AI gagal menghasilkan saran pekerjaan (kemungkinan rate limit/error). Coba lagi nanti atau gunakan model berbayar.'
+  }
+  return 'Output model tidak sesuai format yang diharapkan. Coba lagi nanti.'
 }
 
 function clampScore(value: unknown): number {
@@ -152,7 +167,36 @@ function normalizeReport(parsed: Record<string, unknown>): AnalyzeReport {
   }
 }
 
-export function parseAnalyzeReport(raw: string): AnalyzeReport {
+function toJobs(value: unknown): JobMatchItem[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    const record = item !== null && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+    const reasons = Array.isArray(record.reasons)
+      ? record.reasons.filter((reason): reason is string => typeof reason === 'string')
+      : []
+    return {
+      title: asString(record.title),
+      reasons,
+      matchScore: clampScore(record.matchScore),
+    }
+  })
+}
+
+function normalizeJobsReport(parsed: Record<string, unknown>): JobsReport {
+  return {
+    ...normalizeReport(parsed),
+    jobs: toJobs(parsed.jobs),
+  }
+}
+
+// CR-18: symetric for parseAnalyzeReport too — both analyze and jobs routes reject
+// a valid JSON continuation fragment that lacks the core report fields, instead of
+// silently composing an incomplete report.
+function hasCoreReportFields(parsed: Record<string, unknown>): boolean {
+  return 'overallScore' in parsed || 'atsChecks' in parsed
+}
+
+function parseReport<T>(raw: string, normalize: (parsed: Record<string, unknown>) => T): T {
   if (typeof raw !== 'string' || raw.trim().length === 0) {
     throw new ModelParseError('Model output kosong.')
   }
@@ -160,15 +204,33 @@ export function parseAnalyzeReport(raw: string): AnalyzeReport {
   const fenced = extractFenced(raw)
   if (fenced !== null) {
     const parsed = tryParseObject(fenced)
-    if (parsed !== null) return normalizeReport(parsed)
+    if (parsed !== null) {
+      if (!hasCoreReportFields(parsed)) {
+        throw new ModelParseError('Struktur laporan tidak lengkap.')
+      }
+      return normalize(parsed)
+    }
   }
 
   for (const candidate of extractBalancedObjects(raw)) {
     const parsed = tryParseObject(candidate)
-    if (parsed !== null) return normalizeReport(parsed)
+    if (parsed !== null) {
+      if (!hasCoreReportFields(parsed)) {
+        throw new ModelParseError('Struktur laporan tidak lengkap.')
+      }
+      return normalize(parsed)
+    }
   }
 
   throw new ModelParseError('Tidak ditemukan JSON yang valid pada output model.')
+}
+
+export function parseAnalyzeReport(raw: string): AnalyzeReport {
+  return parseReport(raw, normalizeReport)
+}
+
+export function parseJobsReport(raw: string): JobsReport {
+  return parseReport(raw, normalizeJobsReport)
 }
 
 export interface PostCheckReport {
