@@ -41,19 +41,14 @@ function HistoryItem({ cv }: { cv: CvListItem }) {
               </span>
             </div>
           </div>
-          {hasReview || hasMatch ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {hasReview && (
-                <Button asChild variant="outline" size="sm">
-                  <Link to={`/analysis/${cv.id}`}>Lihat Analisis</Link>
-                </Button>
-              )}
-              {hasMatch && (
-                <Button asChild variant="outline" size="sm">
-                  <Link to={`/matches/${cv.id}`}>Lihat Pekerjaan Cocok</Link>
-                </Button>
-              )}
-            </div>
+          {hasMatch ? (
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/matches/${cv.id}`}>Lihat Pekerjaan Cocok</Link>
+            </Button>
+          ) : hasReview ? (
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/analysis/${cv.id}`}>Lihat Analisis</Link>
+            </Button>
           ) : (
             <span className="text-sm text-muted-foreground">Belum dianalisis</span>
           )}

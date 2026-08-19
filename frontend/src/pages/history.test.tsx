@@ -22,7 +22,7 @@ function renderHistory(items: CvListItem[] = []) {
 }
 
 describe('HistoryPage', () => {
-  it('shows separate analysis and match buttons when both exist (AC: History dua link)', () => {
+  it('shows only the match button when a job match exists (Mode B contains the full analysis)', () => {
     renderHistory([
       {
         id: 1,
@@ -33,7 +33,7 @@ describe('HistoryPage', () => {
       },
     ])
 
-    expect(screen.getByRole('link', { name: 'Lihat Analisis' })).toBeDefined()
+    expect(screen.queryByRole('link', { name: 'Lihat Analisis' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Lihat Pekerjaan Cocok' })).toBeDefined()
   })
 
