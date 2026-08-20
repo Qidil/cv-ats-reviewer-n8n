@@ -94,8 +94,13 @@ const jobsContinueUserMessage = expr(
 // Phase 12: structure check — a truncated continuation fragment (missing the core
 // fields) must NOT pass as valid. Require the top-level keys to be present in the
 // content before the chain accepts the model's output.
+// Phase 14 fix (2026-08-19): previously this only did a substring includes() check,
+// so an output that mentioned the keys but was NOT valid JSON (exec #85, apostrophe
+// instead of double-quote at "end-to-end.','category") still passed and produced a
+// backend 502. Now it verifies the content actually JSON.parse()s and has the core
+// keys, so the chain fails over to the next model instead of forwarding garbage.
 const jobsStructureCheck =
-  '{{ ($json.choices?.[0]?.message?.content ?? "").includes(\'"overallScore"\') && ($json.choices?.[0]?.message?.content ?? "").includes(\'"atsChecks"\') && ($json.choices?.[0]?.message?.content ?? "").includes(\'"jobs"\') }}'
+  '{{ (() => { const c = ($json.choices?.[0]?.message?.content ?? ""); try { const p = JSON.parse(c); return p && typeof p === "object" && !Array.isArray(p) && "overallScore" in p && "atsChecks" in p && "jobs" in p; } catch (e) { return false; } })() }}'
 
 const jobsM1 = node({
   type: 'n8n-nodes-base.httpRequest',

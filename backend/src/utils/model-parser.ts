@@ -1,3 +1,4 @@
+import { jsonrepair } from 'jsonrepair'
 import type { AtsCheck, AtsCheckStatus, JobMatchItem, Suggestion, SuggestionPriority } from '../db/repos.js'
 
 export interface AnalyzeReport {
@@ -114,15 +115,48 @@ function extractBalancedObjects(raw: string): string[] {
 }
 
 function tryParseObject(text: string): Record<string, unknown> | null {
-  try {
-    const parsed: unknown = JSON.parse(text)
-    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>
+  const attempt = (candidate: string): Record<string, unknown> | null => {
+    try {
+      const parsed: unknown = JSON.parse(candidate)
+      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      return null
     }
     return null
+  }
+
+  const direct = attempt(text)
+  if (direct !== null) return direct
+
+  // Repair dan coba lagi — model sering menghasilkan JSON yang "hampir valid".
+  // Kasus nyata (Mode B, 2026-08-19): model menulis apostrof ' sebagai pengganti
+  // " saat menutup nilai string DAN membuka key berikutnya (pola `','`). jsonrepair
+  // menormalkan error umum lain (trailing comma, unquoted key, single-quoted
+  // key/nilai), tapi gagal pada pola apostrof tak seimbang — jadi dicoba berurutan.
+  try {
+    const repaired = attempt(jsonrepair(text))
+    if (repaired !== null) return repaired
+  } catch {
+    // lanjut ke repair terarah
+  }
+  const targeted = applyTargetedRepairs(text)
+  const parsed = attempt(targeted)
+  if (parsed !== null) return parsed
+  try {
+    return attempt(jsonrepair(targeted))
   } catch {
     return null
   }
+}
+
+// Mengganti pola apostrof tak seimbang yang diproduksi model (tidak ditangani
+// jsonrepair): `','` = apostrof penutup nilai + pembuka key, dan `{'` = pembuka
+// key tunggal bercampur penutup ganda. Hanya dipanggil saat JSON sudah invalid,
+// jadi ini perbaikan terarah yang aman.
+function applyTargetedRepairs(text: string): string {
+  return text.replace(/','/g, '","').replace(/\{'/g, '{"')
 }
 
 function toChecks(value: unknown): AtsCheck[] {
@@ -210,6 +244,17 @@ function parseReport<T>(raw: string, normalize: (parsed: Record<string, unknown>
       }
       return normalize(parsed)
     }
+  }
+
+  // Coba seluruh raw langsung — menangkap JSON yang tidak seimbang kutipnya di
+  // key pertama (mis. `{'key":`) sehingga extractBalancedObjects tidak menemukan
+  // objek luar. Repair terarah di tryParseObject baru bisa bekerja di sini.
+  const rawParsed = tryParseObject(raw)
+  if (rawParsed !== null) {
+    if (!hasCoreReportFields(rawParsed)) {
+      throw new ModelParseError('Struktur laporan tidak lengkap.')
+    }
+    return normalize(rawParsed)
   }
 
   for (const candidate of extractBalancedObjects(raw)) {

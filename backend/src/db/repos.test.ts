@@ -61,6 +61,32 @@ describe('cvs repository', () => {
     expect(getCvById(db!, 999)).toBeUndefined()
   })
 
+  it('stores and reads back typographyJson metadata (Phase 14)', () => {
+    const id = insertCv(db!, {
+      originalFilename: 'cv.pdf',
+      cvText: 'Rizky Pratama.',
+      typographyJson: {
+        typography: {
+          fonts: [{ name: 'Helvetica', family: 'Helvetica', isBold: false, isItalic: false, size: 11, charCount: 12 }],
+          fontFamilies: ['Helvetica'],
+          fontSizes: [11],
+          bodySize: 11,
+          titleSize: null,
+          lineSpacing: 1.2,
+          margins: { left: 72, right: 72, top: 52, bottom: 72 },
+          boldRatio: 0.1,
+          italicRatio: 0,
+        },
+        layout: { columnCount: 1, hasGraphics: false, graphics: [] },
+      },
+    })
+    const cv = getCvById(db!, id)
+    expect(cv?.typographyJson?.typography?.fontFamilies).toEqual(['Helvetica'])
+    expect(cv?.typographyJson?.typography?.lineSpacing).toBe(1.2)
+    expect(cv?.typographyJson?.layout?.columnCount).toBe(1)
+    expect(cv?.typographyJson?.layout?.hasGraphics).toBe(false)
+  })
+
   it('lists cvs with computed latestReviewId', () => {
     const cvId = seedCv()
     const targetJobId = insertTargetJob(db!, { cvId, title: 'Frontend Engineer', description: 'React, TypeScript' })

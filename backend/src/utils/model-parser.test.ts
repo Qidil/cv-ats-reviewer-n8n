@@ -115,6 +115,18 @@ describe('parseAnalyzeReport', () => {
     expect(() => parseAnalyzeReport(raw)).toThrow(ModelParseError)
   })
 
+  it('recovers JSON with trailing comma via jsonrepair (2026-08-19)', () => {
+    const raw = `{"overallScore": 60, "atsChecks": [], "weaknesses": ["a",], "suggestions": [],}`
+    const parsed = parseAnalyzeReport(raw)
+    expect(parsed.overallScore).toBe(60)
+  })
+
+  it('recovers JSON with unquoted keys via jsonrepair (2026-08-19)', () => {
+    const raw = `{overallScore: 60, atsChecks: [], weaknesses: ["a"], suggestions: []}`
+    const parsed = parseAnalyzeReport(raw)
+    expect(parsed.overallScore).toBe(60)
+  })
+
   it('keeps valid lone-surrogate escapes (\\uD800) inside strings (CR-19)', () => {
     const raw = `{"overallScore": 60, "atsChecks": [], "weaknesses": ["surrogate \\uD800 kept"], "suggestions": []}`
     const parsed = parseAnalyzeReport(raw)
@@ -201,6 +213,23 @@ describe('parseJobsReport', () => {
       jobs: [{ title: 'Backend Engineer', reasons: ['Node.js'], matchScore: 88 }],
     })
     expect(() => parseJobsReport(fragment)).toThrow('Struktur laporan tidak lengkap')
+  })
+
+  it('recovers JSON with apostrophe instead of double-quote between fields (2026-08-19)', () => {
+    const raw = `{"overallScore":71,"atsChecks":[{"id":"readability","name":"Readability","status":"warn","score":75,"detail":"Bahasa Indonesia baku, bullet points ringkas.','category":"Readability","priority":"low"}],"weaknesses":["a"],"suggestions":[{"title":"T","description":"D","category":"c","priority":"low"}],"jobs":[{"title":"Backend Engineer","reasons":["Node.js","REST API"],"matchScore":88}]}`
+    const parsed = parseJobsReport(raw)
+    expect(parsed.overallScore).toBe(71)
+    expect(parsed.atsChecks).toHaveLength(1)
+    expect(parsed.jobs).toHaveLength(1)
+    expect(parsed.suggestions).toHaveLength(1)
+  })
+
+  it('recovers JSON with a single-quote key opener mixed with double-quote closer (2026-08-20)', () => {
+    const raw = `{'overallScore":71,"atsChecks":[{"id":"keyword","name":"Keyword","status":"pass","score":80,"detail":"ok"}],"weaknesses":["a"],"suggestions":[],"jobs":[{"title":"Backend Engineer","reasons":["Node.js"],"matchScore":88}]}`
+    const parsed = parseJobsReport(raw)
+    expect(parsed.overallScore).toBe(71)
+    expect(parsed.atsChecks).toHaveLength(1)
+    expect(parsed.jobs).toHaveLength(1)
   })
 })
 

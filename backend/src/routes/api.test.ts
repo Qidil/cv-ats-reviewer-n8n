@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import type { DatabaseSync } from 'node:sqlite'
 import { initDb, openDb } from '../db/connection.js'
+import { getCvById } from '../db/repos.js'
 import { N8nProxyError } from '../services/n8n-proxy.js'
+import { makePdf, makePdfWith } from '../services/pdf-test-utils.js'
 import { createApp } from '../index.js'
 
 vi.mock('../services/n8n-proxy.js', async (importOriginal) => {
@@ -11,31 +13,6 @@ vi.mock('../services/n8n-proxy.js', async (importOriginal) => {
 })
 
 import { analyzeCv as mockAnalyzeCv, matchJobs as mockMatchJobs } from '../services/n8n-proxy.js'
-
-function makePdf(text: string): Buffer {
-  const content = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`
-  const objects: string[] = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
-    `<< /Length ${Buffer.byteLength(content, 'latin1')} >>\nstream\n${content}\nendstream`,
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-  ]
-  let pdf = '%PDF-1.4\n'
-  const offsets: number[] = []
-  objects.forEach((obj, index) => {
-    offsets.push(Buffer.byteLength(pdf, 'latin1'))
-    pdf += `${index + 1} 0 obj\n${obj}\nendobj\n`
-  })
-  const xrefOffset = Buffer.byteLength(pdf, 'latin1')
-  pdf += `xref\n0 ${objects.length + 1}\n`
-  pdf += '0000000000 65535 f \n'
-  offsets.forEach((offset) => {
-    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
-  })
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
-  return Buffer.from(pdf, 'latin1')
-}
 
 const MODEL_RAW = `Berikut laporan ATS CV:
 \`\`\`json
@@ -179,7 +156,7 @@ describe('POST /api/cvs/:cvId/analyze', () => {
       id: expect.any(Number),
       cvId,
       targetJobId: expect.any(Number),
-      overallScore: 78,
+      overallScore: 64,
       atsChecks: expect.arrayContaining([expect.objectContaining({ id: 'keyword' })]),
       weaknesses: ['Few quantified achievements'],
       suggestions: expect.arrayContaining([expect.objectContaining({ id: 'sug-1', title: 'Add metrics' })]),
@@ -256,7 +233,7 @@ describe('POST /api/cvs/:cvId/jobs (Mode B)', () => {
     expect(res.body.review).toMatchObject({
       id: expect.any(Number),
       cvId,
-      overallScore: 81,
+      overallScore: 72,
       targetJobId: null,
       modelUsed: 'nvidia/test:free',
     })
@@ -368,5 +345,50 @@ describe('GET /api/rewrites/:rewriteId (rewrite flow disabled)', () => {
   it('returns 404 for any rewrite id', async () => {
     const res = await request(createApp(db)).get('/api/rewrites/999')
     expect(res.status).toBe(404)
+  })
+})
+
+describe('Phase 14 — typography & layout integration', () => {
+  function twoColumnPdf(): Buffer {
+    const content = [
+      'BT /F1 24 Tf 72 740 Td (Budi Sudirman) Tj ET',
+      'BT /F2 12 Tf 72 720 Td (budi@mail.com 081234567890) Tj ET',
+      'BT /F2 12 Tf 72 700 Td (- Led team shipping apis) Tj ET',
+      'BT /F2 12 Tf 340 740 Td (Skills: node typescript docker) Tj ET',
+      'BT /F2 12 Tf 340 720 Td (- git ci cd kubernetes) Tj ET',
+      'BT /F2 12 Tf 340 700 Td (- postgres redis aws) Tj ET',
+    ].join('\n')
+    return makePdfWith(content, { fonts: ['Times-Roman', 'Helvetica'] })
+  }
+
+  async function uploadTwoColumnCv(): Promise<number> {
+    const res = await request(createApp(db))
+      .post('/api/cvs')
+      .attach('cv', twoColumnPdf(), {
+        filename: 'cv.pdf',
+        contentType: 'application/pdf',
+      })
+      .field('targetJobTitle', 'Backend Engineer')
+      .field('targetJobDescription', 'Backend Engineer at TechCo')
+    return res.body.id as number
+  }
+
+  it('stores typography + layout metadata for a two-column PDF (SC-07)', async () => {
+    const cvId = await uploadTwoColumnCv()
+    const cv = getCvById(db, cvId)
+    expect(cv?.typographyJson).not.toBeNull()
+    expect(cv?.typographyJson?.layout?.columnCount).toBeGreaterThanOrEqual(2)
+    expect(cv?.typographyJson?.typography?.fontFamilies.length).toBe(2)
+  })
+
+  it('report carries the deterministic 2-column penalty and typography suggestions (SC-07)', async () => {
+    vi.mocked(mockAnalyzeCv).mockResolvedValue({ model: 'nvidia/test:free', raw: MODEL_RAW, finishReason: 'stop' })
+    const cvId = await uploadTwoColumnCv()
+    const res = await request(createApp(db)).post(`/api/cvs/${cvId}/analyze`)
+
+    expect(res.status).toBe(200)
+    const formatting = res.body.atsChecks.find((check: { id: string }) => check.id === 'formatting')
+    expect(formatting?.detail).toContain('format 2 kolom (penalti -15)')
+    expect(res.body.suggestions.some((s: { id: string }) => s.id.startsWith('typo-'))).toBe(true)
   })
 })

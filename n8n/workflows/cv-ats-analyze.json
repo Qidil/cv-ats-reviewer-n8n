@@ -314,7 +314,7 @@
                                                                                     "rightValue":  true
                                                                                 },
                                                                                 {
-                                                                                    "leftValue":  "={{ ($json.choices?.[0]?.message?.content ?? \"\").includes('\"overallScore\"') \u0026\u0026 ($json.choices?.[0]?.message?.content ?? \"\").includes('\"atsChecks\"') }}",
+                                                                                    "leftValue":  "={{ (() => { const c = ($json.choices?.[0]?.message?.content ?? \"\"); try { const p = JSON.parse(c); return p && typeof p === \"object\" && !Array.isArray(p) && \"overallScore\" in p && \"atsChecks\" in p; } catch (e) { return false; } })() }}",
                                                                                     "operator":  {
                                                                                                      "operation":  "equals",
                                                                                                      "type":  "boolean"
@@ -368,7 +368,7 @@
                                                                                     "rightValue":  true
                                                                                 },
                                                                                 {
-                                                                                    "leftValue":  "={{ ($json.choices?.[0]?.message?.content ?? \"\").includes('\"overallScore\"') \u0026\u0026 ($json.choices?.[0]?.message?.content ?? \"\").includes('\"atsChecks\"') }}",
+                                                                                    "leftValue":  "={{ (() => { const c = ($json.choices?.[0]?.message?.content ?? \"\"); try { const p = JSON.parse(c); return p && typeof p === \"object\" && !Array.isArray(p) && \"overallScore\" in p && \"atsChecks\" in p; } catch (e) { return false; } })() }}",
                                                                                     "operator":  {
                                                                                                      "operation":  "equals",
                                                                                                      "type":  "boolean"
@@ -422,7 +422,7 @@
                                                                                     "rightValue":  true
                                                                                 },
                                                                                 {
-                                                                                    "leftValue":  "={{ ($json.choices?.[0]?.message?.content ?? \"\").includes('\"overallScore\"') \u0026\u0026 ($json.choices?.[0]?.message?.content ?? \"\").includes('\"atsChecks\"') }}",
+                                                                                    "leftValue":  "={{ (() => { const c = ($json.choices?.[0]?.message?.content ?? \"\"); try { const p = JSON.parse(c); return p && typeof p === \"object\" && !Array.isArray(p) && \"overallScore\" in p && \"atsChecks\" in p; } catch (e) { return false; } })() }}",
                                                                                     "operator":  {
                                                                                                      "operation":  "equals",
                                                                                                      "type":  "boolean"
@@ -476,7 +476,7 @@
                                                                                     "rightValue":  true
                                                                                 },
                                                                                 {
-                                                                                    "leftValue":  "={{ ($json.choices?.[0]?.message?.content ?? \"\").includes('\"overallScore\"') \u0026\u0026 ($json.choices?.[0]?.message?.content ?? \"\").includes('\"atsChecks\"') }}",
+                                                                                    "leftValue":  "={{ (() => { const c = ($json.choices?.[0]?.message?.content ?? \"\"); try { const p = JSON.parse(c); return p && typeof p === \"object\" && !Array.isArray(p) && \"overallScore\" in p && \"atsChecks\" in p; } catch (e) { return false; } })() }}",
                                                                                     "operator":  {
                                                                                                      "operation":  "equals",
                                                                                                      "type":  "boolean"

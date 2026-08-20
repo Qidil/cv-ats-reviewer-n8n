@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import type { TypographyMetadata, LayoutMetadata } from '../services/pdf-extract.js'
 
 export type AtsCheckStatus = 'pass' | 'warn' | 'fail'
 export type SuggestionPriority = 'high' | 'medium' | 'low'
@@ -20,10 +21,16 @@ export interface Suggestion {
   priority: SuggestionPriority
 }
 
+export interface CvTypographyJson {
+  typography: TypographyMetadata | null
+  layout: LayoutMetadata | null
+}
+
 export interface Cv {
   id: number
   originalFilename: string
   cvText: string
+  typographyJson: CvTypographyJson | null
   createdAt: string
   updatedAt: string
 }
@@ -97,6 +104,7 @@ export interface Rewrite {
 export interface NewCv {
   originalFilename: string
   cvText: string
+  typographyJson?: CvTypographyJson | null
 }
 
 export interface NewTargetJob {
@@ -162,6 +170,7 @@ interface CvRow {
   id: number
   original_filename: string
   cv_text: string
+  typography_json: string | null
   created_at: string
   updated_at: string
 }
@@ -222,9 +231,10 @@ export function insertCv(db: DatabaseSync, input: NewCv): number {
   const now = nowIso()
   return lastId(
     db,
-    'INSERT INTO cvs (original_filename, cv_text, created_at, updated_at) VALUES (?, ?, ?, ?)',
+    'INSERT INTO cvs (original_filename, cv_text, typography_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
     input.originalFilename,
     input.cvText,
+    input.typographyJson === undefined || input.typographyJson === null ? null : JSON.stringify(input.typographyJson),
     now,
     now,
   )
@@ -235,6 +245,7 @@ function toCv(row: CvRow): Cv {
     id: row.id,
     originalFilename: row.original_filename,
     cvText: row.cv_text,
+    typographyJson: parseNullJson<CvTypographyJson>(row.typography_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

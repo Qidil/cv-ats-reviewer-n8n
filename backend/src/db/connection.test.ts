@@ -94,6 +94,35 @@ describe('db connection', () => {
     }
   })
 
+  it('migrates a pre-Phase-14 cvs table by adding the typography_json column (Phase 14)', () => {
+    dir = mkdtempSync(join(tmpdir(), 'cv-ats-p14-'))
+    db = openDb(join(dir, 'legacy.db'))
+    db.exec(`
+      CREATE TABLE cvs (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        original_filename TEXT    NOT NULL,
+        cv_text           TEXT    NOT NULL,
+        created_at        TEXT    NOT NULL,
+        updated_at        TEXT    NOT NULL
+      );
+    `)
+    db.exec(
+      `INSERT INTO cvs (original_filename, cv_text, created_at, updated_at)
+       VALUES ('cv.pdf', 'text', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
+    )
+
+    initDb(db)
+
+    const cols = db.prepare('PRAGMA table_info(cvs)').all() as Array<{ name: string }>
+    expect(cols.some((col) => col.name === 'typography_json')).toBe(true)
+
+    const preserved = db.prepare('SELECT original_filename, cv_text FROM cvs WHERE id = 1').get() as {
+      original_filename: string
+      cv_text: string
+    }
+    expect(preserved).toEqual({ original_filename: 'cv.pdf', cv_text: 'text' })
+  })
+
   it('migrates a pre-Phase-11 reviews table from NOT NULL to NULL target_job_id (finding #7)', () => {
     dir = mkdtempSync(join(tmpdir(), 'cv-ats-legacy-'))
     db = openDb(join(dir, 'legacy.db'))

@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS cvs (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
   original_filename TEXT    NOT NULL,
   cv_text           TEXT    NOT NULL,
+  typography_json   TEXT    NULL,
   created_at        TEXT    NOT NULL,
   updated_at        TEXT    NOT NULL
 );
@@ -128,8 +129,25 @@ function migrateReviewsTargetJobNullable(db: DatabaseSync): void {
   }
 }
 
+// Phase 14: kolom `cvs.typography_json` menyimpan metadata tipografi/layout hasil
+// ekstraksi pdfjs (family font, ukuran, line-spacing, margin, layout kolom,
+// grafis). `CREATE TABLE IF NOT EXISTS` tidak mengubah tabel lama, jadi tambahkan
+// kolom via ALTER TABLE saat belum ada. Kolom nullable → migrasi aman tanpa
+// rebuild tabel.
+function migrateCvsTypographyColumn(db: DatabaseSync): void {
+  const cols = db.prepare('PRAGMA table_info(cvs)').all() as Array<{
+    name: string
+  }>
+  const hasColumn = cols.some((col) => col.name === 'typography_json')
+  if (hasColumn) {
+    return
+  }
+  db.exec('ALTER TABLE cvs ADD COLUMN typography_json TEXT NULL;')
+}
+
 export function applySchema(db: DatabaseSync): void {
   db.exec(CREATE_TABLES_SQL)
   migrateReviewsTargetJobNullable(db)
+  migrateCvsTypographyColumn(db)
   db.exec(CREATE_INDEXES_SQL)
 }

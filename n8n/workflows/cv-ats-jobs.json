@@ -111,7 +111,7 @@
               "rightValue": true
             },
             {
-              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").includes('\"overallScore\"') && ($json.choices?.[0]?.message?.content ?? \"\").includes('\"atsChecks\"') && ($json.choices?.[0]?.message?.content ?? \"\").includes('\"jobs\"') }}",
+              "leftValue": "={{ (() => { const c = ($json.choices?.[0]?.message?.content ?? \"\"); try { const p = JSON.parse(c); return p && typeof p === \"object\" && !Array.isArray(p) && \"overallScore\" in p && \"atsChecks\" in p && \"jobs\" in p; } catch (e) { return false; } })() }}",
               "operator": {
                 "type": "boolean",
                 "operation": "equals"
@@ -229,7 +229,7 @@
               "rightValue": true
             },
             {
-              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").includes('\"overallScore\"') && ($json.choices?.[0]?.message?.content ?? \"\").includes('\"atsChecks\"') && ($json.choices?.[0]?.message?.content ?? \"\").includes('\"jobs\"') }}",
+              "leftValue": "={{ (() => { const c = ($json.choices?.[0]?.message?.content ?? \"\"); try { const p = JSON.parse(c); return p && typeof p === \"object\" && !Array.isArray(p) && \"overallScore\" in p && \"atsChecks\" in p && \"jobs\" in p; } catch (e) { return false; } })() }}",
               "operator": {
                 "type": "boolean",
                 "operation": "equals"
@@ -315,7 +315,7 @@
               "rightValue": true
             },
             {
-              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").includes('\"overallScore\"') && ($json.choices?.[0]?.message?.content ?? \"\").includes('\"atsChecks\"') && ($json.choices?.[0]?.message?.content ?? \"\").includes('\"jobs\"') }}",
+              "leftValue": "={{ (() => { const c = ($json.choices?.[0]?.message?.content ?? \"\"); try { const p = JSON.parse(c); return p && typeof p === \"object\" && !Array.isArray(p) && \"overallScore\" in p && \"atsChecks\" in p && \"jobs\" in p; } catch (e) { return false; } })() }}",
               "operator": {
                 "type": "boolean",
                 "operation": "equals"
@@ -401,7 +401,7 @@
               "rightValue": true
             },
             {
-              "leftValue": "={{ ($json.choices?.[0]?.message?.content ?? \"\").includes('\"overallScore\"') && ($json.choices?.[0]?.message?.content ?? \"\").includes('\"atsChecks\"') && ($json.choices?.[0]?.message?.content ?? \"\").includes('\"jobs\"') }}",
+              "leftValue": "={{ (() => { const c = ($json.choices?.[0]?.message?.content ?? \"\"); try { const p = JSON.parse(c); return p && typeof p === \"object\" && !Array.isArray(p) && \"overallScore\" in p && \"atsChecks\" in p && \"jobs\" in p; } catch (e) { return false; } })() }}",
               "operator": {
                 "type": "boolean",
                 "operation": "equals"

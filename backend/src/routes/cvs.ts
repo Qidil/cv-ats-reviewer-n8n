@@ -2,7 +2,8 @@ import { Router, type Request, type Response } from 'express'
 import multer from 'multer'
 import type { DatabaseSync } from 'node:sqlite'
 import { extractPdfText } from '../services/pdf-extract.js'
-import { analyzeCv as deterministicAnalyze, composeReport } from '../services/ats.js'
+import { analyzeCv as deterministicAnalyze, attachTypographyNotes, composeReport } from '../services/ats.js'
+import type { PdfMetadata } from '../services/ats.js'
 import { analyzeCv as proxyAnalyze, matchJobs, N8nProxyError } from '../services/n8n-proxy.js'
 import { parseAnalyzeReport, parseJobsReport, ModelParseError, describeAnalyzeFailure, describeJobsFailure } from '../utils/model-parser.js'
 import { parseId } from '../utils/route-id.js'
@@ -73,9 +74,13 @@ export function createCvsRouter(db: DatabaseSync): Router {
     const body = req.body as { targetJobTitle?: unknown; targetJobDescription?: unknown }
     const description = typeof body.targetJobDescription === 'string' ? body.targetJobDescription.trim() : ''
     let cvText: string
+    let typographyJson: PdfMetadata | null = null
     try {
       const result = await extractPdfText(req.file.buffer)
       cvText = result.text
+      if (result.source === 'pdfjs') {
+        typographyJson = { typography: result.typography, layout: result.layout }
+      }
     } catch {
       res.status(400).json({ error: 'PDF tidak dapat dibaca.' })
       return
@@ -84,7 +89,7 @@ export function createCvsRouter(db: DatabaseSync): Router {
       typeof body.targetJobTitle === 'string' && body.targetJobTitle.trim().length > 0
         ? body.targetJobTitle.trim()
         : null
-    const cvId = insertCv(db, { originalFilename: req.file.originalname, cvText })
+    const cvId = insertCv(db, { originalFilename: req.file.originalname, cvText, typographyJson })
     if (description.length > 0) {
       insertTargetJob(db, { cvId, title, description })
     }
@@ -105,7 +110,7 @@ export function createCvsRouter(db: DatabaseSync): Router {
       return
     }
 
-    const deterministic = deterministicAnalyze(cv.cvText, targetJob.description)
+    const deterministic = deterministicAnalyze(cv.cvText, targetJob.description, cv.typographyJson)
 
     let model: string
     let raw: string
@@ -138,7 +143,8 @@ export function createCvsRouter(db: DatabaseSync): Router {
       throw error
     }
 
-    const report = composeReport(deterministic, parsed)
+    let report = composeReport(deterministic, parsed, { preferDeterministicFormatting: true })
+    report = attachTypographyNotes(report, cv.typographyJson)
     const reviewId = insertReview(db, {
       cvId,
       targetJobId: targetJob.id,
@@ -159,7 +165,7 @@ export function createCvsRouter(db: DatabaseSync): Router {
     if (loaded === null) return
     const { cvId, cv } = loaded
 
-    const deterministic = deterministicAnalyze(cv.cvText, '')
+    const deterministic = deterministicAnalyze(cv.cvText, '', cv.typographyJson)
 
     let model: string
     let raw: string
@@ -195,7 +201,8 @@ export function createCvsRouter(db: DatabaseSync): Router {
       return
     }
 
-    const report = composeReport(deterministic, parsed)
+    let report = composeReport(deterministic, parsed, { preferDeterministicFormatting: true })
+    report = attachTypographyNotes(report, cv.typographyJson)
     const reviewId = insertReview(db, {
       cvId,
       targetJobId: null,
