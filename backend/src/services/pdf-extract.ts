@@ -19,6 +19,12 @@ const COLUMN_MIN_LINES_PER_CLUSTER = 2
 const COLUMN_SHARED_LINES_MIN = 2
 const COLUMN_SPAN_MIN_RATIO = 0.5
 const GRAPHIC_BAR_ASPECT_RATIO = 3
+// Phase 15: garis pemisah section Word adalah filled rectangle tipis & hampir
+// selebar halaman (mis. 454pt × 0,48pt, rasio ~945). Ia bukan skill bar. Abaikan
+// bentuk TERISI yang (a) terlalu tipis (garis pemisah) atau (b) hampir selebar
+// halaman (rule horizontal) — keduanya bukan progress bar/skill bar.
+const GRAPHIC_BAR_MIN_THICKNESS = 1.5
+const GRAPHIC_BAR_MAX_WIDTH_RATIO = 0.6
 
 export interface FontRunInfo {
   name: string
@@ -77,7 +83,7 @@ const GRAPHIC_OP_NAMES = new Set([
 
 const FILL_OP_TYPES = new Set([OPS.fill, OPS.eoFill, OPS.fillStroke])
 
-function pathLooksLikeBar(segments: unknown): boolean {
+function pathLooksLikeBar(segments: unknown, pageWidth: number): boolean {
   if (!Array.isArray(segments)) return false
   const points: { x: number; y: number }[] = []
   for (const seg of segments) {
@@ -99,6 +105,10 @@ function pathLooksLikeBar(segments: unknown): boolean {
   const width = maxX - minX
   const height = maxY - minY
   if (width <= 0 || height <= 0) return false
+  // Phase 15: garis pemisah section (tipis) atau rule hampir selebar halaman
+  // bukan skill bar → abaikan.
+  if (height < GRAPHIC_BAR_MIN_THICKNESS) return false
+  if (width > GRAPHIC_BAR_MAX_WIDTH_RATIO * pageWidth) return false
   return width >= height * GRAPHIC_BAR_ASPECT_RATIO || height >= width * GRAPHIC_BAR_ASPECT_RATIO
 }
 
@@ -187,8 +197,14 @@ function computeMargins(
   let maxX = -Infinity
   let minY = Infinity
   let maxY = -Infinity
+  let found = false
   for (const line of lines) {
     for (const run of line.runs) {
+      // Phase 15: abaikan run artefak yang runtuh ke koordinat (0,0) atau di luar
+      // batas halaman (terjadi pada PDF export Word). Run asli tak pernah di
+      // x=0/y=0 atau di luar MediaBox.
+      if (run.x <= 0 || run.y <= 0 || run.x > pageWidth || run.y > pageHeight) continue
+      found = true
       const w = run.text.length * run.fontSize * 0.5
       minX = Math.min(minX, run.x)
       maxX = Math.max(maxX, run.x + w)
@@ -196,6 +212,7 @@ function computeMargins(
       maxY = Math.max(maxY, run.y)
     }
   }
+  if (!found) return null
   return {
     left: Math.round(minX * 10) / 10,
     right: Math.round((pageWidth - maxX) * 10) / 10,
@@ -343,7 +360,7 @@ async function extractWithPdfjs(buffer: Buffer): Promise<{ text: string; typogra
         } else if (name === 'constructPath') {
           const opType = args[0]
           if (typeof opType !== 'number' || !FILL_OP_TYPES.has(opType)) continue
-          if (pathLooksLikeBar(args[1])) graphics.push(name)
+          if (pathLooksLikeBar(args[1], pageWidth)) graphics.push(name)
         } else if (GRAPHIC_OP_NAMES.has(name)) {
           graphics.push(name)
         }

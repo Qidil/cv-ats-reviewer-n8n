@@ -370,3 +370,72 @@ describe('Phase 14 — typography & layout rules', () => {
     expect(formatting.score).not.toBe(99)
   })
 })
+
+describe('Phase 15 — Word-exported PDF false positive fixes', () => {
+  const cleanMetadata: PdfMetadata = {
+    typography: {
+      fonts: [
+        { name: 'Helvetica', family: 'Helvetica', isBold: false, isItalic: false, size: 11, charCount: 100 },
+        { name: 'Helvetica Bold', family: 'Helvetica', isBold: true, isItalic: false, size: 16, charCount: 20 },
+      ],
+      fontFamilies: ['Helvetica'],
+      fontSizes: [11, 16],
+      bodySize: 11,
+      titleSize: 16,
+      lineSpacing: 1.1,
+      margins: { left: 72, right: 72, top: 72, bottom: 72 },
+      boldRatio: 0.05,
+      italicRatio: 0,
+    },
+    layout: { columnCount: 1, hasGraphics: false, graphics: [] },
+  }
+
+  it('does not flag 9.96pt body / 15.96pt title (Word renders 10pt/16pt as 9.96/15.96)', () => {
+    const metadata: PdfMetadata = {
+      ...cleanMetadata,
+      typography: {
+        ...cleanMetadata.typography!,
+        bodySize: 9.96,
+        titleSize: 15.96,
+      },
+    }
+    const findings = deriveTypographyFindings(metadata)
+    const ids = findings.suggestions.map((s) => s.id)
+    expect(ids).not.toContain('typo-body-size')
+    expect(ids).not.toContain('typo-title-size')
+  })
+
+  it('ignores a negligible font family (bullet glyph fallback) for the multi-font suggestion', () => {
+    const metadata: PdfMetadata = {
+      ...cleanMetadata,
+      typography: {
+        ...cleanMetadata.typography!,
+        fonts: [
+          { name: 'Calibri', family: 'Calibri', isBold: false, isItalic: false, size: 11, charCount: 7417 },
+          { name: 'Arial', family: 'Arial', isBold: false, isItalic: false, size: 11, charCount: 38 },
+        ],
+        fontFamilies: ['Calibri', 'Arial'],
+      },
+    }
+    const findings = deriveTypographyFindings(metadata)
+    expect(findings.suggestions.map((s) => s.id)).not.toContain('typo-font-count')
+  })
+
+  it('counts inline bullet glyphs (Word `●` not at line start) so formatting does not flag missing bullets', () => {
+    const cv = [
+      'Nama Saya',
+      'email@mail.com',
+      '+6281200000000',
+      '',
+      'Summary',
+      'Backend engineer dengan pengalaman membangun REST API dan layanan mikro.',
+      '',
+      'Experience',
+      '● Memimpin tim backend dan meningkatkan performa API sebesar 30%.',
+      'PT Perusahaan ● Mengelola 5 layanan produksi dengan SLA 99,9%.',
+    ].join('\n')
+    const result = analyzeCv(cv, SAMPLE_JD)
+    const formatting = result.atsChecks.find((c) => c.id === 'formatting')!
+    expect(formatting.detail).not.toContain('bullet points')
+  })
+})

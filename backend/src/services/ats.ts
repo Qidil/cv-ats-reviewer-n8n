@@ -99,11 +99,20 @@ function detectSections(cvLower: string): Record<CheckSection, boolean> {
   return result
 }
 
+// Phase 15: CV dari Word sering memakai bullet glyph `●` (U+25CF) — bukan hanya
+// `-*•·` di awal baris. Deteksi juga marker inline (nama perusahaan mendahului
+// `●` sebaris) agar CV yang memang pakai bullet tidak salah dinilai "tanpa bullet".
+const BULLET_INLINE_RE = /[●•▪‣○◦]/
 function extractBullets(cv: string): string[] {
   return cv
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => /^[-*•·]\s+/.test(line) || /^\d+[.)]\s+/.test(line))
+    .filter(
+      (line) =>
+        /^[-*•·●▪‣○◦]\s+/.test(line) ||
+        /^\d+[.)]\s+/.test(line) ||
+        BULLET_INLINE_RE.test(line),
+    )
 }
 
 function extractKeywords(jdLower: string): string[] {
@@ -438,14 +447,30 @@ export function deriveTypographyFindings(metadata: PdfMetadata | null | undefine
   }
 
   const bodyFamily = typo.fonts.find((f) => !f.isBold && !f.isItalic && f.size === typo.bodySize)?.family
-  const hasMultipleFamilies = typo.fontFamilies.length > 1
+  // Phase 15: Word/Calibri merender 10pt sebagai 9,96pt. Bulatkan ke 0,5pt
+  // terdekat sebelum membandingkan batas agar "10pt" tidak salah disarankan.
+  const roundHalf = (n: number) => Math.round(n * 2) / 2
+  const roundedTitle = typo.titleSize !== null ? roundHalf(typo.titleSize) : null
+  const roundedBody = typo.bodySize !== null ? roundHalf(typo.bodySize) : null
+  // Phase 15: hanya hitung family dengan porsi char signifikan (≥1%). Glyph
+  // bullet `●` yang Word fallback ke Arial (mis. 0,5% teks) tidak lagi memicu
+  // saran "2 font".
+  const totalChars = typo.fonts.reduce((sum, f) => sum + f.charCount, 0)
+  const familyChars = new Map<string, number>()
+  for (const f of typo.fonts) {
+    familyChars.set(f.family, (familyChars.get(f.family) ?? 0) + f.charCount)
+  }
+  const significantFamilies = [...familyChars.entries()]
+    .filter(([, count]) => totalChars === 0 || count / totalChars >= 0.01)
+    .map(([family]) => family)
+  const hasMultipleFamilies = significantFamilies.length > 1
 
   if (hasMultipleFamilies) {
     push(
       'typo-font-count',
       'Gunakan satu font utama',
-      `CV memakai ${typo.fontFamilies.length} font: ${typo.fontFamilies.join(', ')}. Pilih satu font sans-serif (mis. Arial, Calibri, Helvetica).`,
-      `${typo.fontFamilies.length} font berbeda`,
+      `CV memakai ${significantFamilies.length} font: ${significantFamilies.join(', ')}. Pilih satu font sans-serif (mis. Arial, Calibri, Helvetica).`,
+      `${significantFamilies.length} font berbeda`,
     )
   }
   if (bodyFamily !== undefined && !hasMultipleFamilies && !isRecommendedSans(bodyFamily)) {
@@ -459,20 +484,20 @@ export function deriveTypographyFindings(metadata: PdfMetadata | null | undefine
       `font non-sans (${bodyFamily})`,
     )
   }
-  if (typo.titleSize !== null && (typo.titleSize < TITLE_SIZE_MIN || typo.titleSize > TITLE_SIZE_MAX)) {
+  if (roundedTitle !== null && (roundedTitle < TITLE_SIZE_MIN || roundedTitle > TITLE_SIZE_MAX)) {
     push(
       'typo-title-size',
       'Sesuaikan ukuran nama/judul',
-      `Ukuran font nama/judul saat ini ${typo.titleSize}pt. Disarankan 14–16pt.`,
-      `ukuran judul ${typo.titleSize}pt (ideal 14–16)`,
+      `Ukuran font nama/judul saat ini ${roundedTitle}pt. Disarankan 14–16pt.`,
+      `ukuran judul ${roundedTitle}pt (ideal 14–16)`,
     )
   }
-  if (typo.bodySize !== null && (typo.bodySize < BODY_SIZE_MIN || typo.bodySize > BODY_SIZE_MAX)) {
+  if (roundedBody !== null && (roundedBody < BODY_SIZE_MIN || roundedBody > BODY_SIZE_MAX)) {
     push(
       'typo-body-size',
       'Sesuaikan ukuran teks isi',
-      `Ukuran teks isi saat ini ${typo.bodySize}pt. Disarankan 10–12pt (idealnya 10–11pt).`,
-      `ukuran isi ${typo.bodySize}pt (ideal 10–12)`,
+      `Ukuran teks isi saat ini ${roundedBody}pt. Disarankan 10–12pt (idealnya 10–11pt).`,
+      `ukuran isi ${roundedBody}pt (ideal 10–12)`,
     )
   }
   if (typo.lineSpacing !== null && (typo.lineSpacing < LINE_SPACING_MIN || typo.lineSpacing > LINE_SPACING_MAX)) {

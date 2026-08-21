@@ -108,4 +108,24 @@ describe('extractPdfText — Phase 14 typography & layout metadata', () => {
     expect(result.typography).toBeNull()
     expect(result.layout).toBeNull()
   })
+
+  it('Phase 15: does not count a near-full-width thin filled rule (Word section divider) as graphics', async () => {
+    const content = [
+      'BT /F1 12 Tf 72 720 Td (Section title) Tj ET',
+      'q 1 0 0 1 72 700 cm 0 0 454 0.48 re f Q',
+    ].join('\n')
+    const result = await extractPdfText(makePdf(content))
+    expect(result.layout?.hasGraphics).toBe(false)
+  })
+
+  it('Phase 15: ignores artifact runs at the origin or outside the page when computing margins', async () => {
+    const content = [
+      'BT /F1 12 Tf 0 0 Td (Ghost at origin) Tj ET',
+      'BT /F1 12 Tf 700 900 Td (Ghost off page) Tj ET',
+      'BT /F1 12 Tf 72 720 Td (Real content) Tj ET',
+    ].join('\n')
+    const result = await extractPdfText(makePdf(content))
+    expect(result.typography?.margins?.left).toBe(72)
+    expect(result.typography?.margins?.top).toBeCloseTo(72, 0)
+  })
 })
