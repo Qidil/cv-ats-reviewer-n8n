@@ -123,7 +123,8 @@ const jobsM1 = node({
           { role: 'user', content: jobsUserMessage },
         ],
         temperature: 0.2,
-        max_tokens: 4096,
+        max_tokens: 8192,
+        reasoning: { enabled: false },
       },
       options: { timeout: 60000 },
     },
@@ -153,7 +154,8 @@ const jobsM2 = node({
           { role: 'user', content: jobsContinueUserMessage },
         ],
         temperature: 0.2,
-        max_tokens: 4096,
+        max_tokens: 8192,
+        reasoning: { enabled: false },
       },
       options: { timeout: 60000 },
     },
@@ -183,7 +185,8 @@ const jobsM3 = node({
           { role: 'user', content: jobsContinueUserMessage },
         ],
         temperature: 0.2,
-        max_tokens: 4096,
+        max_tokens: 8192,
+        reasoning: { enabled: false },
       },
       options: { timeout: 60000 },
     },
@@ -213,7 +216,8 @@ const jobsM4 = node({
           { role: 'user', content: jobsContinueUserMessage },
         ],
         temperature: 0.2,
-        max_tokens: 4096,
+        max_tokens: 8192,
+        reasoning: { enabled: false },
       },
       options: { timeout: 60000 },
     },
@@ -222,9 +226,9 @@ const jobsM4 = node({
   },
 })
 
-// tradeoff (CR-18 INFO): Model 5 is the terminal model — no validation If-node.
-// If the whole chain fails, Model 5's error flows to Format Output (empty raw) and
-// the backend reports a generic contract error. Accepted as a last-resort design.
+// Phase 17 (2026-08-21): Model 5 is the terminal model — the free-models router
+// (openrouter/free). gpt-oss-20b:free was removed (HTTP 404 "unavailable for
+// free"). reasoning is disabled so the full max_tokens budget goes to content.
 const jobsM5 = node({
   type: 'n8n-nodes-base.httpRequest',
   version: 4.5,
@@ -240,13 +244,14 @@ const jobsM5 = node({
       contentType: 'json',
       specifyBody: 'json',
       jsonBody: {
-        model: 'openai/gpt-oss-20b:free',
+        model: 'openrouter/free',
         messages: [
           { role: 'system', content: jobsSystemPrompt },
           { role: 'user', content: jobsContinueUserMessage },
         ],
         temperature: 0.2,
-        max_tokens: 4096,
+        max_tokens: 8192,
+        reasoning: { enabled: false },
       },
       options: { timeout: 60000 },
     },
@@ -342,6 +347,26 @@ const jobsValidM4 = ifElse({
   },
 })
 
+const jobsValidM5 = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Jobs Valid Model 5',
+    position: [880, 1020],
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
+        conditions: [
+          { leftValue: expr('{{ !$json.error }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.message?.content ?? "").trim().length > 0 }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr('{{ ($json.choices?.[0]?.finish_reason ?? "stop") !== "length" }}'), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+          { leftValue: expr(jobsStructureCheck), operator: { type: 'boolean', operation: 'equals' }, rightValue: true },
+        ],
+        combinator: 'and',
+      },
+    },
+  },
+})
+
 const formatOutput = node({
   type: 'n8n-nodes-base.set',
   version: 3.4,
@@ -383,7 +408,14 @@ export default workflow('cv-ats-jobs', 'CV ATS Jobs')
                               .to(
                                 jobsValidM4
                                   .onTrue(formatOutput)
-                                  .onFalse(jobsM5.to(formatOutput)),
+                                  .onFalse(
+                                    jobsM5
+                                      .to(
+                                        jobsValidM5
+                                          .onTrue(formatOutput)
+                                          .onFalse(formatOutput),
+                                      ),
+                                  ),
                               )
                               .onError(jobsM5),
                           ),

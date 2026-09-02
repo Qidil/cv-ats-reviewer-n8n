@@ -37,7 +37,7 @@ Solusinya adalah alat single-user yang berjalan sepenuhnya di mesin Anda. Unggah
   - Hasilnya memberitahukan **kelemahan** CV dan **saran perbaikan** terstruktur per aturan.
 - **Job Suggestions (Mode B)** — 5–10 pekerjaan cocok dengan alasan dari isi CV dan skor kecocokan per pekerjaan; tersimpan sebagai `reviews` + `job_matches`.
 - **History** — semua CV, analisis (Mode A/B), dan saran pekerjaan tersimpan lokal di SQLite dan bisa dibuka ulang ("Lihat Analisis" / "Lihat Pekerjaan Cocok").
-- **Model Failover + Continue** — jika satu model gratis gagal (429, kosong), otomatis pindah ke model berikutnya; jika terpotong batas token (`finish_reason: "length"`), model berikutnya menghasilkan **dokumen final lengkap** menggunakan output parsial sebagai referensi.
+- **Model Failover + Continue** — jika satu model gratis gagal (429, kosong), otomatis pindah ke model berikutnya; jika terpotong batas token (`finish_reason: "length"`), model berikutnya menghasilkan **dokumen final lengkap** menggunakan output parsial sebagai referensi. Rantai analyze/jobs berakhir dengan **`openrouter/free`** (auto-router OpenRouter yang memilih model gratis yang tersedia); semua model menggunakan `reasoning: { enabled: false }` + `max_tokens: 8192` agar output JSON tidak terpotong.
 
 ---
 
@@ -46,7 +46,7 @@ Solusinya adalah alat single-user yang berjalan sepenuhnya di mesin Anda. Unggah
 Tantangan terbesar dalam pembuatan aplikasi ini:
 
 1. **AI orchestration tanpa Code node** — aturan proyek melarang JavaScript di n8n ("TypeScript everywhere"), sehingga semua parsing & logika deterministik dipindah ke backend; n8n hanya berisi webhook + HTTP Request (failover).
-2. **Rate limit model gratis OpenRouter** — model `:free` sering 429; diselesaikan dengan rantai failover 5 model (`nemotron-3-ultra → nemotron-3-super → nemotron-3-nano → gemma-4-31b-it → gpt-oss-20b`) dengan `onError: continueErrorOutput`.
+2. **Rate limit model gratis OpenRouter** — model `:free` sering 429; diselesaikan dengan rantai failover (analyze & jobs: 5 model — `nemotron-3-ultra → nemotron-3-super → nemotron-3-nano → gemma-4-31b-it → openrouter/free`; rewrite: 5 model) dengan `onError: continueErrorOutput`, `reasoning` dimatikan, dan `max_tokens` 8192 per model.
 3. **Output model tidak selalu JSON valid** — teks ekstra kadang menempel di sekitar JSON; backend memakai regex fallback untuk mengekstrak JSON yang benar, plus validator struktur di n8n agar fragment/ekor output parsial tidak lolos.
 4. **`node:sqlite` tidak membuat folder otomatis** — `openAppDb` sempat gagal saat folder `data/` belum ada; diperbaiki dengan `mkdirSync` sebelum membuka koneksi.
 5. **Output terpotong batas token (`finish_reason: "length")`** — model free kerap berhenti di tengah output sehingga JSON tidak valid. Dipecahkan dengan **FAILOVER-CONTINUE**: saat model kena token limit, model berikutnya menghasilkan dokumen final lengkap (output parsial dipakai sebagai referensi), dan If-validator memastikan struktur JSON minimum (`overallScore` + `atsChecks`) sebelum diterima.

@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import { getDocument, GlobalWorkerOptions, OPS } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import { getDocument, GlobalWorkerOptions, OPS, VerbosityLevel } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { PDFParse } from 'pdf-parse'
 
 const require = createRequire(import.meta.url)
@@ -272,7 +272,7 @@ function describeFont(name: string): string {
 }
 
 async function extractWithPdfjs(buffer: Buffer): Promise<{ text: string; typography: TypographyMetadata; layout: LayoutMetadata }> {
-  const doc = await getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise
+  const doc = await getDocument({ data: new Uint8Array(buffer), useSystemFonts: true, verbosity: VerbosityLevel.ERRORS }).promise
   try {
     const nameByFn: Record<number, string> = {}
     for (const [name, id] of Object.entries(OPS)) {
