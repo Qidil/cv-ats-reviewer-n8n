@@ -14,6 +14,11 @@ const badgeVariants = cva(
           "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
         destructive:
           "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
+        // Phase 19 (Impeccable): status "Lolos"/pass memakai warna aksen
+        // (hijau), konsisten dengan zona skor ATS (hijau >=80) — sebelumnya
+        // memakai "secondary" (biru), tidak selaras dengan zona skor.
+        accent:
+          "bg-accent/10 text-accent focus-visible:ring-accent/20 [a]:hover:bg-accent/20",
         outline:
           "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
         ghost:

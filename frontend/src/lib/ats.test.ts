@@ -19,8 +19,8 @@ describe('scoreZone', () => {
 })
 
 describe('statusBadgeVariant', () => {
-  it('maps pass to secondary', () => {
-    expect(statusBadgeVariant('pass')).toBe('secondary')
+  it('maps pass to accent (Phase 19: selaras zona skor hijau)', () => {
+    expect(statusBadgeVariant('pass')).toBe('accent')
   })
 
   it('maps warn to outline', () => {

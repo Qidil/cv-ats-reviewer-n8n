@@ -96,7 +96,7 @@ describe('MatchesPage', () => {
 
     const badgeVariantFor = (label: string) => screen.getByText(label).closest('[data-slot="badge"]')?.getAttribute('data-variant')
 
-    expect(badgeVariantFor('88%')).toBe('secondary')
+    expect(badgeVariantFor('88%')).toBe('accent')
     expect(badgeVariantFor('45%')).toBe('outline')
     expect(badgeVariantFor('12%')).toBe('destructive')
   })

@@ -16,8 +16,11 @@ export function scoreZone(score: number): ScoreZone {
   return { label: 'Rendah', color: 'text-destructive', bar: 'bg-destructive' }
 }
 
-export function statusBadgeVariant(status: AtsCheckStatus): 'secondary' | 'outline' | 'destructive' {
-  if (status === 'pass') return 'secondary'
+// Phase 19 (Impeccable): "pass" memakai varian "accent" (hijau) — selaras
+// dengan zona skor ATS (hijau >=80), bukan "secondary" (biru) seperti
+// sebelumnya, yang membuat status Lolos tidak konsisten dengan skor.
+export function statusBadgeVariant(status: AtsCheckStatus): 'accent' | 'outline' | 'destructive' {
+  if (status === 'pass') return 'accent'
   if (status === 'warn') return 'outline'
   return 'destructive'
 }

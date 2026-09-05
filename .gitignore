@@ -32,7 +32,11 @@ backend/scripts/test-output/
 # Local tooling state (not source)
 .codebase-memory/
 .agents/
-.opencode/skill/
+.opencode/
+.codex/
+.impeccable/
+PRODUCT.md
+DESIGN.md
 skills-lock.json
 
 # Logs

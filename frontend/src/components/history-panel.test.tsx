@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import HistoryPage from './history'
+import { HistoryPanel } from './history-panel'
 import type { CvListItem } from '@/types/api'
 
 const { mockUseCvList } = vi.hoisted(() => ({
@@ -12,18 +12,18 @@ vi.mock('@/hooks/use-cv-list', () => ({
   useCvList: (...args: unknown[]) => mockUseCvList(...args),
 }))
 
-function renderHistory(items: CvListItem[] = []) {
+function renderHistoryPanel(items: CvListItem[] = []) {
   mockUseCvList.mockReturnValue({ items, isLoading: false, error: null })
   return render(
     <MemoryRouter>
-      <HistoryPage />
+      <HistoryPanel />
     </MemoryRouter>,
   )
 }
 
-describe('HistoryPage', () => {
+describe('HistoryPanel (Phase 20: diekstrak dari history.tsx, route /history dihapus)', () => {
   it('shows only the match button when a job match exists (Mode B contains the full analysis)', () => {
-    renderHistory([
+    renderHistoryPanel([
       {
         id: 1,
         originalFilename: 'cv.pdf',
@@ -38,7 +38,7 @@ describe('HistoryPage', () => {
   })
 
   it('shows only the analysis button when no job match exists', () => {
-    renderHistory([
+    renderHistoryPanel([
       {
         id: 2,
         originalFilename: 'cv2.pdf',
@@ -53,7 +53,7 @@ describe('HistoryPage', () => {
   })
 
   it('shows only the match button when no review exists', () => {
-    renderHistory([
+    renderHistoryPanel([
       {
         id: 3,
         originalFilename: 'cv3.pdf',
@@ -65,5 +65,23 @@ describe('HistoryPage', () => {
 
     expect(screen.queryByRole('link', { name: 'Lihat Analisis' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Lihat Pekerjaan Cocok' })).toBeDefined()
+  })
+
+  it('shows the empty-state message when there are no CVs', () => {
+    renderHistoryPanel([])
+
+    expect(screen.getByText(/Belum ada CV/i)).toBeInTheDocument()
+  })
+
+  it('shows an error alert when loading fails', () => {
+    mockUseCvList.mockReturnValue({ items: [], isLoading: false, error: 'Terjadi kesalahan koneksi' })
+    render(
+      <MemoryRouter>
+        <HistoryPanel />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Gagal memuat')).toBeInTheDocument()
+    expect(screen.getByText('Terjadi kesalahan koneksi')).toBeInTheDocument()
   })
 })

@@ -1,22 +1,25 @@
 import { useRef, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { ArrowRight, FileUp, History, UploadCloud } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { FileUp, UploadCloud } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { HistoryPanel } from '@/components/history-panel'
 import { api, ApiRequestError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const MAX_CV_BYTES = 5 * 1024 * 1024
 
-type Step = 'file' | 'mode' | 'description'
+// Phase 20: gabung step file+mode jadi satu ('select') — Mode A/B tampil
+// langsung bersama file picker, tanpa tombol "Lanjut" terpisah.
+type Step = 'select' | 'description'
 
 export default function UploadPage() {
   const navigate = useNavigate()
-  const [step, setStep] = useState<Step>('file')
+  const [step, setStep] = useState<Step>('select')
   const [cvFile, setCvFile] = useState<File | null>(null)
   const [jobTitle, setJobTitle] = useState('')
   const [jobDescription, setJobDescription] = useState('')
@@ -57,24 +60,24 @@ export default function UploadPage() {
     setCvFile(file)
   }
 
-  function handleFileStepNext() {
+  function validateFile(): boolean {
     if (cvFile === null) {
       setError('Pilih file PDF terlebih dahulu.')
-      return
+      return false
     }
     if (cvFile.type !== 'application/pdf') {
       setError('File harus berupa PDF.')
-      return
+      return false
     }
     if (cvFile.size > MAX_CV_BYTES) {
       setError('Ukuran file maksimal 5 MB.')
-      return
+      return false
     }
-    setError(null)
-    setStep('mode')
+    return true
   }
 
   function handleModeSelect(selected: 'A' | 'B') {
+    if (!validateFile()) return
     setError(null)
     if (selected === 'A') {
       setStep('description')
@@ -122,19 +125,12 @@ export default function UploadPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-8 py-16">
+    <main className="mx-auto grid w-full max-w-[1120px] gap-6 px-8 py-16 md:grid-cols-2 md:items-start">
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">Unggah CV</CardTitle>
           <CardDescription>
-            Analisis kecocokan CV Anda terhadap pekerjaan target dengan AI.{' '}
-            <Link
-              to="/history"
-              className="inline-flex items-center gap-1 font-medium text-secondary underline-offset-4 hover:underline"
-            >
-              <History className="size-3.5" aria-hidden="true" />
-              Lihat riwayat
-            </Link>
+            Analisis kecocokan CV Anda terhadap pekerjaan target dengan AI.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -145,7 +141,7 @@ export default function UploadPage() {
             </Alert>
           )}
 
-          {step === 'file' ? (
+          {step === 'select' ? (
             <div className="flex flex-col gap-6">
               <div>
                 <Label htmlFor="cv-file">File CV (PDF)</Label>
@@ -190,50 +186,35 @@ export default function UploadPage() {
                   />
                 </div>
               </div>
-              <div className="flex justify-end">
-                <Button type="button" onClick={handleFileStepNext}>
-                  Lanjut
-                  <ArrowRight aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
-          ) : step === 'mode' ? (
-            <div className="flex flex-col gap-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-col gap-1 p-6 text-left"
-                  onClick={() => handleModeSelect('A')}
-                  disabled={isSubmitting}
-                >
-                  <span className="font-medium">Mode A — Kecocokan Pekerjaan</span>
-                  <span className="text-sm font-normal text-muted-foreground">
-                    Analisis CV terhadap deskripsi pekerjaan target.
-                  </span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-col gap-1 p-6 text-left"
-                  onClick={() => handleModeSelect('B')}
-                  disabled={isSubmitting}
-                >
-                  <span className="font-medium">Mode B — Analisis Umum + Saran Pekerjaan</span>
-                  <span className="text-sm font-normal text-muted-foreground">
-                    Skor kualitas CV tanpa JD plus rekomendasi pekerjaan cocok.
-                  </span>
-                </Button>
-              </div>
-              <div className="flex items-center justify-between">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setStep('file')}
-                  disabled={isSubmitting}
-                >
-                  Kembali
-                </Button>
+
+              <div>
+                <Label>Pilih mode analisis</Label>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto w-full flex-col items-start gap-1 whitespace-normal p-6 text-left"
+                    onClick={() => handleModeSelect('A')}
+                    disabled={isSubmitting}
+                  >
+                    <span className="font-medium">Mode A — Kecocokan Pekerjaan</span>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      Analisis CV terhadap deskripsi pekerjaan target.
+                    </span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto w-full flex-col items-start gap-1 whitespace-normal p-6 text-left"
+                    onClick={() => handleModeSelect('B')}
+                    disabled={isSubmitting}
+                  >
+                    <span className="font-medium">Mode B — Analisis Umum + Saran Pekerjaan</span>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      Skor kualitas CV tanpa JD plus rekomendasi pekerjaan cocok.
+                    </span>
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (
@@ -265,7 +246,7 @@ export default function UploadPage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setStep('mode')}
+                  onClick={() => setStep('select')}
                   disabled={isSubmitting}
                 >
                   Kembali
@@ -285,6 +266,8 @@ export default function UploadPage() {
           )}
         </CardContent>
       </Card>
+
+      <HistoryPanel />
     </main>
   )
 }

@@ -36,7 +36,7 @@ Solusinya adalah alat single-user yang berjalan sepenuhnya di mesin Anda. Unggah
   - **Readability** — keterbacaan dan struktur teks.
   - Hasilnya memberitahukan **kelemahan** CV dan **saran perbaikan** terstruktur per aturan.
 - **Job Suggestions (Mode B)** — 5–10 pekerjaan cocok dengan alasan dari isi CV dan skor kecocokan per pekerjaan; tersimpan sebagai `reviews` + `job_matches`.
-- **History** — semua CV, analisis (Mode A/B), dan saran pekerjaan tersimpan lokal di SQLite dan bisa dibuka ulang ("Lihat Analisis" / "Lihat Pekerjaan Cocok").
+- **History** — semua CV, analisis (Mode A/B), dan saran pekerjaan tersimpan lokal di SQLite; ditampilkan sebagai **panel di samping alur Upload** (Phase 20) — bersampingan di desktop/tablet, bertumpuk di mobile, dengan scroll independen (bukan halaman/route terpisah lagi). Tiap CV bisa dibuka ulang ("Lihat Analisis" / "Lihat Pekerjaan Cocok").
 - **Model Failover + Continue** — jika satu model gratis gagal (429, kosong), otomatis pindah ke model berikutnya; jika terpotong batas token (`finish_reason: "length"`), model berikutnya menghasilkan **dokumen final lengkap** menggunakan output parsial sebagai referensi. Rantai analyze/jobs berakhir dengan **`openrouter/free`** (auto-router OpenRouter yang memilih model gratis yang tersedia); semua model menggunakan `reasoning: { enabled: false }` + `max_tokens: 8192` agar output JSON tidak terpotong.
 
 ---
@@ -61,12 +61,17 @@ Tantangan terbesar dalam pembuatan aplikasi ini:
 - **TypeScript di seluruh kode** — satu bahasa untuk frontend, backend, dan logika ATS; backend menangani semua parsing & aturan deterministik.
 - **SQLite (`node:sqlite`)** — penyimpanan lokal tanpa step compile native (Node ≥ 22.5); n8n tidak menyentuh database.
 - **Express** — REST API sekaligus proxy ke n8n; frontend hanya bicara ke Express sehingga kunci API OpenRouter tidak pernah terekspos ke browser.
-- **React + Vite + Tailwind CSS v4 + shadcn/ui** — UI dashboard minimal untuk halaman Upload, Analysis, Matches, dan History.
+- **React + Vite + Tailwind CSS v4 + shadcn/ui** — UI dashboard minimal (Upload+Riwayat 2 kolom, Analysis, Matches) dengan palet gelap navy-ink dan layout 2 kolom pada halaman hasil (Phase 19–20, direvisi via skill desain [Impeccable](https://impeccable.style)).
 - **Vitest** — unit test backend (DB, ATS engine, parser, PDF extract, routes) + frontend (React Testing Library).
 
 ---
 
 ## Screenshot
+
+> Catatan: screenshot di bawah menampilkan kondisi UI **sebelum** revisi
+> visual Phase 19 (palet gelap navy-ink, via skill Impeccable) & Phase 20
+> (layout 2 kolom, Mode A/B langsung tampil) — struktur laporan (skor,
+> pemeriksaan, kelemahan, saran) masih sama, tampilan visual akan diperbarui.
 
 <table>
   <tr>
@@ -224,13 +229,18 @@ npm run dev:frontend
 
 1. Pastikan ketiga proses di atas berjalan dan kedua workflow n8n aktif.
 2. Buka `http://localhost:5173` di browser.
-3. **Upload** — pilih file CV (PDF), klik *Lanjut*.
+3. **Upload** — pilih file CV (PDF); pilihan Mode A/B **langsung tampil** di
+   halaman yang sama (tidak ada tombol *Lanjut* lagi — Phase 20).
 4. Pilih mode:
-   - **Mode A** — isi judul + deskripsi pekerjaan target (wajib), klik *Analisis CV*.
-   - **Mode B** — tanpa deskripsi pekerjaan, klik *Cari Pekerjaan Cocok*.
-5. **Analysis** (Mode A) — lihat skor ATS, pemeriksaan per-aturan, kelemahan, dan saran perbaikan.
+   - **Mode A** — klik tombol Mode A, isi judul + deskripsi pekerjaan target
+     (wajib), lalu klik *Analisis CV*.
+   - **Mode B** — klik tombol Mode B langsung (tanpa deskripsi pekerjaan) —
+     submit otomatis begitu diklik.
+5. **Analysis** (Mode A) — lihat skor ATS, pemeriksaan per-aturan, kelemahan,
+   dan saran perbaikan (kelemahan+saran tampil di kolom kanan pada desktop/
+   tablet — Phase 20).
 6. **Matches** (Mode B) — lihat laporan ATS lengkap plus 5–10 saran pekerjaan
-   dengan alasan dan skor kecocokan.
-7. **History** — buka halaman Riwayat (`/history`) untuk melihat semua CV yang
-   pernah diunggah, dengan link "Lihat Analisis" (Mode A) dan/atau "Lihat
-   Pekerjaan Cocok" (Mode B).
+   dengan alasan dan skor kecocokan (kolom kanan pada desktop/tablet).
+7. **History** — panel Riwayat **selalu tampil di samping halaman Upload**
+   (Phase 20, bukan halaman/route `/history` terpisah lagi), dengan link
+   "Lihat Analisis" (Mode A) dan/atau "Lihat Pekerjaan Cocok" (Mode B).

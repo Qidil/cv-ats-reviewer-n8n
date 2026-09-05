@@ -55,7 +55,7 @@ export default function AnalysisPage() {
   const zone = scoreZone(report.overallScore)
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col gap-6 px-8 py-16">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[1120px] flex-col gap-6 px-8 py-16">
       <div>
         <Button asChild variant="ghost" className="mb-4">
           <Link to="/">
@@ -69,26 +69,34 @@ export default function AnalysisPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Skor Kecocokan</CardTitle>
-          <CardDescription>Cocokkan CV dengan deskripsi pekerjaan target.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="flex items-baseline gap-3">
-            <span className={`text-5xl font-bold tracking-tight ${zone.color}`}>{overall}</span>
-            <span className="text-sm text-muted-foreground">/ 100</span>
-            <Badge>{zone.label}</Badge>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
-            <div className={`h-full rounded-full ${zone.bar}`} style={{ width: `${overall}%` }} />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Phase 20: kolom kanan (Kelemahan + Saran) di sebelah kanan mulai
+          md: (768px); bertumpuk urutan asli di mobile. */}
+      <div className="grid gap-6 md:grid-cols-2 md:items-start">
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Skor Kecocokan</CardTitle>
+              <CardDescription>Cocokkan CV dengan deskripsi pekerjaan target.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="flex items-baseline gap-3">
+                <span className={`text-5xl font-bold tracking-tight ${zone.color}`}>{overall}</span>
+                <span className="text-sm text-muted-foreground">/ 100</span>
+                <Badge>{zone.label}</Badge>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                <div className={`h-full rounded-full ${zone.bar}`} style={{ width: `${overall}%` }} />
+              </div>
+            </CardContent>
+          </Card>
+          <AtsChecksCard checks={report.atsChecks} />
+        </div>
 
-      <AtsChecksCard checks={report.atsChecks} />
-      <WeaknessesCard weaknesses={report.weaknesses} />
-      <SuggestionsCard suggestions={report.suggestions} />
+        <div className="flex flex-col gap-6">
+          <WeaknessesCard weaknesses={report.weaknesses} />
+          <SuggestionsCard suggestions={report.suggestions} />
+        </div>
+      </div>
     </main>
   )
 }
