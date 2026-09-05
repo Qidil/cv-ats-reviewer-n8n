@@ -80,7 +80,13 @@ function extractFenced(raw: string): string | null {
 
 function extractBalancedObjects(raw: string): string[] {
   const candidates: string[] = []
+  // Phase 18 (MIN-10): if no closing brace remains anywhere after this point, no
+  // candidate can ever be found from here on — stop instead of re-scanning to the
+  // end of the string for every remaining '{' (avoids O(n^2) on malformed model
+  // output containing many unmatched '{' with no '}' at all).
+  const lastBraceIndex = raw.lastIndexOf('}')
   for (let start = 0; start < raw.length; start++) {
+    if (lastBraceIndex === -1 || start > lastBraceIndex) break
     if (raw[start] !== '{') continue
     let depth = 0
     let inString = false

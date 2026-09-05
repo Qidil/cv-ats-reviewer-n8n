@@ -1,84 +1,32 @@
-import { useParams, Link } from 'react-router-dom'
-import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { AtsChecksCard, SuggestionsCard, WeaknessesCard, scoreValue } from '@/components/ats-report-sections'
+import { RouteErrorState } from '@/components/route-error-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAnalysis } from '@/hooks/use-analysis'
-import { scoreZone, statusBadgeVariant, statusLabel } from '@/lib/ats'
+import { scoreZone } from '@/lib/ats'
 import { parseRouteId } from '@/lib/utils'
-import type { AtsCheck } from '@/types/api'
-
-function scoreValue(score: number): number {
-  return Math.max(0, Math.min(100, Math.round(score)))
-}
-
-function CheckRow({ check }: { check: AtsCheck }) {
-  const zone = scoreZone(check.score)
-  return (
-    <li className="grid gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <span className="font-medium text-foreground">{check.name}</span>
-        <Badge variant={statusBadgeVariant(check.status)}>{statusLabel(check.status)}</Badge>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
-        <div
-          className={`h-full rounded-full ${zone.bar}`}
-          style={{ width: `${scoreValue(check.score)}%` }}
-        />
-      </div>
-      <p className="text-sm text-muted-foreground">
-        <span className={`font-medium ${zone.color}`}>{scoreValue(check.score)}</span>
-        {check.detail.length > 0 ? ` — ${check.detail}` : ''}
-      </p>
-    </li>
-  )
-}
 
 export default function AnalysisPage() {
   const { cvId: rawCvId } = useParams()
   const cvId = parseRouteId(rawCvId)
-  const { report, isLoading, error } = useAnalysis(cvId ?? 0)
+  const { report, isLoading, error } = useAnalysis(cvId)
 
   if (cvId === null) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-8 py-16">
-        <Alert variant="destructive">
-          <AlertCircle aria-hidden="true" />
-          <AlertTitle>ID tidak valid</AlertTitle>
-          <AlertDescription>Parameter analisis pada alamat tidak dikenali.</AlertDescription>
-        </Alert>
-        <div className="mt-6">
-          <Button asChild variant="outline">
-            <Link to="/">
-              <ArrowLeft aria-hidden="true" />
-              Kembali ke Upload
-            </Link>
-          </Button>
-        </div>
-      </main>
+      <RouteErrorState
+        title="ID tidak valid"
+        description="Parameter analisis pada alamat tidak dikenali."
+        backLabel="Kembali ke Upload"
+      />
     )
   }
 
   if (error !== null) {
-    return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-8 py-16">
-        <Alert variant="destructive">
-          <AlertCircle aria-hidden="true" />
-          <AlertTitle>Analisis gagal</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <div className="mt-6">
-          <Button asChild variant="outline">
-            <Link to="/">
-              <ArrowLeft aria-hidden="true" />
-              Kembali ke Upload
-            </Link>
-          </Button>
-        </div>
-      </main>
-    )
+    return <RouteErrorState title="Analisis gagal" description={error} backLabel="Kembali ke Upload" />
   }
 
   if (isLoading || report === null) {
@@ -138,63 +86,9 @@ export default function AnalysisPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Pemeriksaan ATS</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {report.atsChecks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tidak ada pemeriksaan yang tersedia.</p>
-          ) : (
-            <ul className="grid gap-5">
-              {report.atsChecks.map((check) => (
-                <CheckRow key={check.id} check={check} />
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Kelemahan</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {report.weaknesses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tidak ada kelemahan yang terdeteksi.</p>
-          ) : (
-            <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
-              {report.weaknesses.map((weakness) => (
-                <li key={weakness}>{weakness}</li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Saran Perbaikan</CardTitle>
-          <CardDescription>Saran untuk meningkatkan kualitas CV Anda.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {report.suggestions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tidak ada saran yang tersedia.</p>
-          ) : (
-            <ul className="grid gap-4">
-              {report.suggestions.map((suggestion) => (
-                <li key={suggestion.id} className="grid gap-1">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-medium text-foreground">{suggestion.title}</span>
-                    <Badge variant="outline">{suggestion.priority}</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{suggestion.description}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <AtsChecksCard checks={report.atsChecks} />
+      <WeaknessesCard weaknesses={report.weaknesses} />
+      <SuggestionsCard suggestions={report.suggestions} />
     </main>
   )
 }

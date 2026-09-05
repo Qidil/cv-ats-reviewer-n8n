@@ -23,12 +23,16 @@ function runAnalysisOnce(cvId: number): Promise<AnalyzeReport> {
   return promise
 }
 
-export function useAnalysis(cvId: number): UseAnalysisResult {
+export function useAnalysis(cvId: number | null): UseAnalysisResult {
   const [report, setReport] = useState<AnalyzeReport | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Phase 18 (MIN-11): skip the fetch entirely for an invalid route id instead
+    // of firing a request that the caller immediately discards.
+    if (cvId === null) return
+    const id = cvId
     let cancelled = false
     setIsLoading(true)
     setError(null)
@@ -36,7 +40,7 @@ export function useAnalysis(cvId: number): UseAnalysisResult {
     async function load() {
       try {
         const cvs = await api.listCvs()
-        const cv = cvs.find((item) => item.id === cvId)
+        const cv = cvs.find((item) => item.id === id)
         if (cv !== undefined && cv.latestReviewId !== null) {
           const stored = await api.getReview(cv.latestReviewId)
           if (!cancelled) {
@@ -45,7 +49,7 @@ export function useAnalysis(cvId: number): UseAnalysisResult {
           }
           return
         }
-        const fresh = await runAnalysisOnce(cvId)
+        const fresh = await runAnalysisOnce(id)
         if (!cancelled) {
           setReport(fresh)
           setIsLoading(false)

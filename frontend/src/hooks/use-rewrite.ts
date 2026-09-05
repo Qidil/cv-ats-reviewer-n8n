@@ -8,12 +8,15 @@ interface UseRewriteResult {
   error: string | null
 }
 
-export function useRewrite(rewriteId: number): UseRewriteResult {
+export function useRewrite(rewriteId: number | null): UseRewriteResult {
   const [rewrite, setRewrite] = useState<Rewrite | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Phase 18 (MIN-11): skip the fetch entirely for an invalid route id instead
+    // of firing a request that the caller immediately discards.
+    if (rewriteId === null) return
     let cancelled = false
     setIsLoading(true)
     setError(null)

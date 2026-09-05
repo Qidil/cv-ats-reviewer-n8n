@@ -45,3 +45,6 @@ pnpm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# Personal reference documents (not part of the project)
+Aturan-Analisis-CV.docx

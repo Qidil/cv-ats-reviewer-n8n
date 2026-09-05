@@ -12,7 +12,16 @@ vi.mock('../services/n8n-proxy.js', async (importOriginal) => {
   return { ...actual, analyzeCv: vi.fn(), matchJobs: vi.fn() }
 })
 
+// Phase 18 (CR-17): wraps the real implementation by default (all existing tests keep
+// exercising real pdfjs/pdf-parse extraction). Only the one test that needs an empty
+// extraction result overrides it with a scoped mockResolvedValueOnce.
+vi.mock('../services/pdf-extract.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/pdf-extract.js')>()
+  return { ...actual, extractPdfText: vi.fn(actual.extractPdfText) }
+})
+
 import { analyzeCv as mockAnalyzeCv, matchJobs as mockMatchJobs } from '../services/n8n-proxy.js'
+import { extractPdfText as mockExtractPdfText } from '../services/pdf-extract.js'
 
 const MODEL_RAW = `Berikut laporan ATS CV:
 \`\`\`json
@@ -110,6 +119,36 @@ describe('POST /api/cvs', () => {
       })
       .field('targetJobDescription', 'Backend Engineer')
     expect(res.status).toBe(415)
+  })
+
+  it('returns 415 when mimetype claims PDF but the content has no %PDF- magic bytes (MIN-04)', async () => {
+    const res = await request(createApp(db))
+      .post('/api/cvs')
+      .attach('cv', Buffer.from('this claims to be a pdf via mimetype but is not one'), {
+        filename: 'cv.pdf',
+        contentType: 'application/pdf',
+      })
+      .field('targetJobDescription', 'Backend Engineer')
+    expect(res.status).toBe(415)
+    expect(res.body.error).toBeTypeOf('string')
+  })
+
+  it('returns 400 when the PDF has no extractable text, e.g. scanned/image-only (MIN-03)', async () => {
+    vi.mocked(mockExtractPdfText).mockResolvedValueOnce({
+      text: '   \n  ',
+      source: 'pdf-parse',
+      typography: null,
+      layout: null,
+    })
+    const res = await request(createApp(db))
+      .post('/api/cvs')
+      .attach('cv', makePdf('irrelevant: extractPdfText is mocked for this test'), {
+        filename: 'cv.pdf',
+        contentType: 'application/pdf',
+      })
+      .field('targetJobDescription', 'Backend Engineer')
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/Tidak ada teks yang bisa diekstrak/)
   })
 
   it('returns 201 when targetJobDescription is missing (Mode B upload)', async () => {

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { RouteErrorState } from '@/components/route-error-state'
 import { useRewrite } from '@/hooks/use-rewrite'
 import { api } from '@/lib/api'
 import { scoreZone } from '@/lib/ats'
@@ -13,44 +14,19 @@ import { parseRouteId } from '@/lib/utils'
 export default function ResultPage() {
   const { rewriteId: rawRewriteId } = useParams()
   const rewriteId = parseRouteId(rawRewriteId)
-  const { rewrite, isLoading, error } = useRewrite(rewriteId ?? 0)
+  const { rewrite, isLoading, error } = useRewrite(rewriteId)
 
   if (rewriteId === null) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-8 py-16">
-        <Alert variant="destructive">
-          <AlertTitle>ID tidak valid</AlertTitle>
-          <AlertDescription>Parameter hasil pada alamat tidak dikenali.</AlertDescription>
-        </Alert>
-        <div className="mt-6">
-          <Button asChild variant="outline">
-            <Link to="/">
-              <ArrowLeft aria-hidden="true" />
-              Kembali
-            </Link>
-          </Button>
-        </div>
-      </main>
+      <RouteErrorState
+        title="ID tidak valid"
+        description="Parameter hasil pada alamat tidak dikenali."
+      />
     )
   }
 
   if (error !== null) {
-    return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-8 py-16">
-        <Alert variant="destructive">
-          <AlertTitle>Gagal memuat</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <div className="mt-6">
-          <Button asChild variant="outline">
-            <Link to="/">
-              <ArrowLeft aria-hidden="true" />
-              Kembali
-            </Link>
-          </Button>
-        </div>
-      </main>
-    )
+    return <RouteErrorState title="Gagal memuat" description={error} />
   }
 
   if (isLoading || rewrite === null) {

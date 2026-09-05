@@ -165,6 +165,27 @@ describe('analyzeCv — n8n webhook proxy', () => {
     expect(schedule).toBeDefined()
     timeoutSpy.mockRestore()
   })
+
+  it('de-dupes concurrent calls for the same cvId into a single HTTP request (MIN-06)', async () => {
+    respondOk(VALID_BODY)
+    const payload = { cvId: 555, cvText: 'CV', targetJobDescription: 'JD' }
+
+    const [first, second] = await Promise.all([analyzeCv(payload), analyzeCv(payload)])
+
+    expect(httpState.calls).toHaveLength(1)
+    expect(first).toEqual(VALID_BODY)
+    expect(second).toEqual(VALID_BODY)
+  })
+
+  it('fires a new HTTP request for the same cvId once the previous call has settled (MIN-06)', async () => {
+    respondOk(VALID_BODY)
+    const payload = { cvId: 555, cvText: 'CV', targetJobDescription: 'JD' }
+
+    await analyzeCv(payload)
+    await analyzeCv(payload)
+
+    expect(httpState.calls).toHaveLength(2)
+  })
 })
 
 const REWRITE_BODY = {

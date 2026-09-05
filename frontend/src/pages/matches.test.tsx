@@ -77,4 +77,27 @@ describe('MatchesPage', () => {
     expect(screen.getByText('Analisis gagal')).toBeDefined()
     expect(screen.getByText('Gagal memuat')).toBeDefined()
   })
+
+  it('renders a 3-tier badge (pass/warn/fail) based on matchScore (MIN-13)', () => {
+    mockUseJobMatch.mockReturnValue({
+      report,
+      jobMatch: {
+        ...jobMatch,
+        matches: [
+          { title: 'Backend Engineer', reasons: [], matchScore: 88 }, // pass (>= 60)
+          { title: 'Junior Support', reasons: [], matchScore: 45 }, // warn (30-59)
+          { title: 'Unrelated Role', reasons: [], matchScore: 12 }, // fail (< 30)
+        ],
+      },
+      isLoading: false,
+      error: null,
+    })
+    renderMatches()
+
+    const badgeVariantFor = (label: string) => screen.getByText(label).closest('[data-slot="badge"]')?.getAttribute('data-variant')
+
+    expect(badgeVariantFor('88%')).toBe('secondary')
+    expect(badgeVariantFor('45%')).toBe('outline')
+    expect(badgeVariantFor('12%')).toBe('destructive')
+  })
 })

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { RouteErrorState } from '@/components/route-error-state'
 import { useReview } from '@/hooks/use-review'
 import { api, ApiRequestError } from '@/lib/api'
 import type { RewriteFormat } from '@/types/api'
@@ -40,7 +41,7 @@ export default function ApprovalPage() {
   const { reviewId: rawReviewId } = useParams()
   const navigate = useNavigate()
   const reviewId = parseRouteId(rawReviewId)
-  const { review, isLoading, error } = useReview(reviewId ?? 0)
+  const { review, isLoading, error } = useReview(reviewId)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [format, setFormat] = useState<RewriteFormat>('chronological')
@@ -77,40 +78,15 @@ export default function ApprovalPage() {
 
   if (reviewId === null) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-8 py-16">
-        <Alert variant="destructive">
-          <AlertTitle>ID tidak valid</AlertTitle>
-          <AlertDescription>Parameter review pada alamat tidak dikenali.</AlertDescription>
-        </Alert>
-        <div className="mt-6">
-          <Button asChild variant="outline">
-            <Link to="/">
-              <ArrowLeft aria-hidden="true" />
-              Kembali
-            </Link>
-          </Button>
-        </div>
-      </main>
+      <RouteErrorState
+        title="ID tidak valid"
+        description="Parameter review pada alamat tidak dikenali."
+      />
     )
   }
 
   if (error !== null) {
-    return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-8 py-16">
-        <Alert variant="destructive">
-          <AlertTitle>Gagal memuat</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <div className="mt-6">
-          <Button asChild variant="outline">
-            <Link to="/">
-              <ArrowLeft aria-hidden="true" />
-              Kembali
-            </Link>
-          </Button>
-        </div>
-      </main>
-    )
+    return <RouteErrorState title="Gagal memuat" description={error} />
   }
 
   if (isLoading || review === null) {

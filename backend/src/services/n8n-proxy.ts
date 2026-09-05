@@ -67,71 +67,94 @@ function n8nWebhookUrl(path: string): string {
   return `${base.replace(/\/$/, '')}/webhook/${path}`
 }
 
-export async function analyzeCv(payload: AnalyzePayload): Promise<AnalyzeResult> {
-  const data = await postWebhook<AnalyzeResult>(
-    process.env.N8N_ANALYZE_PATH ?? 'cv-analyze',
-    payload,
-    (data): data is AnalyzeResult =>
-      typeof data.model === 'string' &&
-      typeof data.raw === 'string' &&
-      (data.finishReason === undefined ||
-        data.finishReason === null ||
-        typeof data.finishReason === 'string'),
+// Phase 18 (MIN-08): analyzeCv/matchJobs previously duplicated this exact predicate
+// byte-for-byte (AnalyzeResult and MatchJobsResult are structurally identical).
+function isModelEnvelope(
+  data: Record<string, unknown>,
+): data is { model: string; raw: string; finishReason: string | null } {
+  return (
+    typeof data.model === 'string' &&
+    typeof data.raw === 'string' &&
+    (data.finishReason === undefined || data.finishReason === null || typeof data.finishReason === 'string')
   )
-  return {
-    model: data.model,
-    raw: data.raw,
-    finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
-  }
+}
+
+// Phase 18 (MIN-06): de-dupe concurrent calls for the same operation + cvId so a
+// double-submit (double click, browser resend) reuses the in-flight AI call
+// instead of firing a second expensive one against the same OpenRouter quota.
+const inFlightByKey = new Map<string, Promise<unknown>>()
+
+function dedupeInFlight<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const existing = inFlightByKey.get(key)
+  if (existing !== undefined) return existing as Promise<T>
+  const promise = fn().finally(() => {
+    inFlightByKey.delete(key)
+  })
+  inFlightByKey.set(key, promise)
+  return promise
+}
+
+export async function analyzeCv(payload: AnalyzePayload): Promise<AnalyzeResult> {
+  return dedupeInFlight(`analyze:${payload.cvId}`, async () => {
+    const data = await postWebhook<AnalyzeResult>(
+      process.env.N8N_ANALYZE_PATH ?? 'cv-analyze',
+      payload,
+      isModelEnvelope,
+    )
+    return {
+      model: data.model,
+      raw: data.raw,
+      finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
+    }
+  })
 }
 
 export async function matchJobs(payload: MatchJobsPayload): Promise<MatchJobsResult> {
-  const data = await postWebhook<MatchJobsResult>(
-    process.env.N8N_JOBS_PATH ?? 'cv-jobs',
-    payload,
-    (data): data is MatchJobsResult =>
-      typeof data.model === 'string' &&
-      typeof data.raw === 'string' &&
-      (data.finishReason === undefined ||
-        data.finishReason === null ||
-        typeof data.finishReason === 'string'),
-  )
-  return {
-    model: data.model,
-    raw: data.raw,
-    finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
-  }
+  return dedupeInFlight(`jobs:${payload.cvId}`, async () => {
+    const data = await postWebhook<MatchJobsResult>(
+      process.env.N8N_JOBS_PATH ?? 'cv-jobs',
+      payload,
+      isModelEnvelope,
+    )
+    return {
+      model: data.model,
+      raw: data.raw,
+      finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
+    }
+  })
 }
 
 export async function rewriteCv(payload: RewritePayload): Promise<RewriteResult> {
-  const data = await postWebhook<RewriteResult>(
-    process.env.N8N_REWRITE_PATH ?? 'cv-rewrite',
-    payload,
-    (data): data is RewriteResult =>
-      typeof data.model === 'string' &&
-      typeof data.raw === 'string' &&
-      (data.finishReason === undefined ||
-        data.finishReason === null ||
-        typeof data.finishReason === 'string') &&
-      (data.postCheckModel === undefined ||
-        data.postCheckModel === null ||
-        typeof data.postCheckModel === 'string') &&
-      (data.postCheckRaw === undefined ||
-        data.postCheckRaw === null ||
-        typeof data.postCheckRaw === 'string') &&
-      (data.postCheckFinishReason === undefined ||
-        data.postCheckFinishReason === null ||
-        typeof data.postCheckFinishReason === 'string'),
-  )
-  return {
-    model: data.model,
-    raw: data.raw,
-    finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
-    postCheckModel: data.postCheckModel ?? null,
-    postCheckRaw: data.postCheckRaw ?? null,
-    postCheckFinishReason:
-      typeof data.postCheckFinishReason === 'string' ? data.postCheckFinishReason : null,
-  }
+  return dedupeInFlight(`rewrite:${payload.cvId}`, async () => {
+    const data = await postWebhook<RewriteResult>(
+      process.env.N8N_REWRITE_PATH ?? 'cv-rewrite',
+      payload,
+      (data): data is RewriteResult =>
+        typeof data.model === 'string' &&
+        typeof data.raw === 'string' &&
+        (data.finishReason === undefined ||
+          data.finishReason === null ||
+          typeof data.finishReason === 'string') &&
+        (data.postCheckModel === undefined ||
+          data.postCheckModel === null ||
+          typeof data.postCheckModel === 'string') &&
+        (data.postCheckRaw === undefined ||
+          data.postCheckRaw === null ||
+          typeof data.postCheckRaw === 'string') &&
+        (data.postCheckFinishReason === undefined ||
+          data.postCheckFinishReason === null ||
+          typeof data.postCheckFinishReason === 'string'),
+    )
+    return {
+      model: data.model,
+      raw: data.raw,
+      finishReason: typeof data.finishReason === 'string' ? data.finishReason : null,
+      postCheckModel: data.postCheckModel ?? null,
+      postCheckRaw: data.postCheckRaw ?? null,
+      postCheckFinishReason:
+        typeof data.postCheckFinishReason === 'string' ? data.postCheckFinishReason : null,
+    }
+  })
 }
 
 async function postWebhook<T extends Record<string, unknown>>(
@@ -139,10 +162,14 @@ async function postWebhook<T extends Record<string, unknown>>(
   payload: unknown,
   validate: (data: Record<string, unknown>) => data is T,
 ): Promise<T> {
-  const url = new URL(n8nWebhookUrl(path))
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), n8nTimeoutMs())
+  // Phase 18 (MIN-07): `new URL(...)` now runs inside the try so a malformed
+  // N8N_URL is mapped to the curated "Gagal terhubung ke n8n." message instead
+  // of a raw, uncaught TypeError.
+  let timeout: ReturnType<typeof setTimeout> | undefined
   try {
+    const url = new URL(n8nWebhookUrl(path))
+    const controller = new AbortController()
+    timeout = setTimeout(() => controller.abort(), n8nTimeoutMs())
     const response = await request(url, JSON.stringify(payload), controller.signal)
     const data = (await response.json()) as Record<string, unknown>
     if (!validate(data)) {
@@ -156,7 +183,7 @@ async function postWebhook<T extends Record<string, unknown>>(
     }
     throw new N8nProxyError('Gagal terhubung ke n8n.')
   } finally {
-    clearTimeout(timeout)
+    if (timeout !== undefined) clearTimeout(timeout)
   }
 }
 
